@@ -1,4 +1,5 @@
-/* ========== Scene 6：飞行棋（js/scenes/scene6.js） ========== */
+/* ========== Scene 6：飞行棋（js/scenes/scene6.js）· 亲手玩版 ========== */
+/* 这一章的 DOM 都做成"纸"：和棋盘、信纸同一种材质，打卡纸上的孔是真的打穿 */
 .s6-canvas {
   position: absolute;
   inset: 0;
@@ -8,68 +9,218 @@
   touch-action: none;
 }
 .s6-layer {
+  --s6-paper: #fff3e8;
+  --s6-paper-2: #ffe4d8;
+  --s6-ink: #46235a;
+  --s6-rose: #e0457b;
+  --s6-gold: #ffcf7a;
+  --s6-safe-b: env(safe-area-inset-bottom, 0px);
+  --s6-safe-t: env(safe-area-inset-top, 0px);
   position: absolute;
   inset: 0;
   z-index: 2;
+  overflow: hidden;
   pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-/* 中央的大骰子 */
+/* ---------- 骰子 ---------- */
 .s6-die {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 132px;
-  height: 132px;
+  width: clamp(104px, 30vw, 132px);
+  height: clamp(104px, 30vw, 132px);
   padding: 0;
   border: 0;
   background: none;
   transform: translate(-50%, -50%) scale(0.01);
   pointer-events: auto;
   cursor: pointer;
+  touch-action: none;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
   filter: drop-shadow(0 0 14px rgba(255, 120, 190, 0.55));
   will-change: transform;
 }
 .s6-die canvas {
+  position: relative;
   display: block;
   width: 100%;
   height: 100%;
   image-rendering: pixelated;
 }
 .s6-die:focus { outline: none; }
+.s6-die:focus-visible { outline: 3px solid var(--s6-gold); outline-offset: 6px; }
 .s6-die.idle { animation: s6-die-idle 1.8s ease-in-out infinite; }
 @keyframes s6-die-idle {
   0%, 100% { filter: drop-shadow(0 0 10px rgba(255, 120, 190, 0.45)); }
   50% { filter: drop-shadow(0 0 22px rgba(255, 150, 210, 0.9)); }
 }
+/* 蓄力环：--p 从 0 到 1 */
+.s6-die-ring {
+  --p: 0;
+  position: absolute;
+  inset: -16px;
+  border-radius: 50%;
+  background: conic-gradient(var(--s6-gold) calc(var(--p) * 360deg), rgba(255, 255, 255, 0.14) 0);
+  -webkit-mask: radial-gradient(circle, transparent 66%, #000 67%);
+  mask: radial-gradient(circle, transparent 66%, #000 67%);
+  pointer-events: none;
+}
 
-/* 落地后的那句话：底部毛玻璃卡片 */
+/* ---------- 操作提示：一张小纸条 ---------- */
+.s6-hint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(26px + var(--s6-safe-b));
+  max-width: calc(100% - 40px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: var(--s6-ink);
+  background: var(--s6-paper);
+  box-shadow: 0 3px 0 rgba(70, 35, 90, 0.28), 0 10px 22px rgba(20, 4, 40, 0.35);
+  transform: translate(-50%, 12px) rotate(-1deg);
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.3s cubic-bezier(.2,1.3,.4,1);
+}
+.s6-hint.on { opacity: 1; transform: translate(-50%, 0) rotate(-1deg); }
+.s6-hint-arrow {
+  display: inline-block;
+  color: var(--s6-rose);
+  rotate: var(--r, 0rad);
+  animation: s6-hint-nudge 1s ease-in-out infinite;
+}
+@keyframes s6-hint-nudge { 50% { transform: translate(5px, 0); } }
+
+/* ---------- 飞行计分 ---------- */
+.s6-hud {
+  position: absolute;
+  right: 14px;
+  top: calc(14px + var(--s6-safe-t));
+  padding: 5px 12px;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--s6-ink);
+  background: var(--s6-gold);
+  box-shadow: 0 3px 0 rgba(70, 35, 90, 0.3);
+  transform: rotate(2deg);
+  transition: opacity 0.4s ease;
+}
+.s6-hud.pop { animation: s6-hud-pop 0.32s cubic-bezier(.3,1.7,.5,1); }
+.s6-hud.off { opacity: 0; }
+@keyframes s6-hud-pop { 40% { transform: rotate(2deg) scale(1.28); } }
+
+/* ---------- 打卡纸 ---------- */
 .s6-caption {
   position: absolute;
   left: 50%;
-  bottom: max(22px, env(safe-area-inset-bottom));
-  width: min(340px, calc(100% - 32px));
+  bottom: calc(14px + var(--s6-safe-b));
+  width: min(340px, calc(100% - 28px));
+  box-sizing: border-box;
   padding: 14px 16px 12px;
   text-align: center;
-  border-radius: 20px;
-  background: rgba(36, 14, 52, 0.52);
-  border: 1px solid rgba(255, 210, 230, 0.28);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 30px rgba(20, 4, 40, 0.45);
-  transform: translate(-50%, 18px);
+  color: var(--s6-ink);
+  background: linear-gradient(170deg, var(--s6-paper), var(--s6-paper-2));
+  box-shadow: 0 4px 0 rgba(70, 35, 90, 0.25), 0 14px 30px rgba(20, 4, 40, 0.4);
+  transform: translate(-50%, 30px) rotate(1.5deg);
   opacity: 0;
-  transition: opacity 1.2s ease, transform 1.2s ease;
+  transition: opacity 0.5s ease, transform 0.6s cubic-bezier(.2,1.2,.4,1);
 }
-.s6-caption.on { opacity: 1; transform: translate(-50%, 0); }
-.s6-cap-main { font-size: 14px; line-height: 1.75; letter-spacing: 0.06em; color: var(--ink); }
+.s6-caption.on { opacity: 1; transform: translate(-50%, 0) rotate(-0.6deg); }
+/* 打卡纸出现时，提示条挪到它上方 */
+.s6-caption ~ .s6-hint { bottom: calc(232px + var(--s6-safe-b)); }
+.s6-cap-main { font-size: 15px; line-height: 1.65; letter-spacing: 0.04em; }
 .s6-cap-main:first-child { font-weight: 700; }
-.s6-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-top: 10px; }
-.s6-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
-  transition: background 0.25s, box-shadow 0.25s, transform 0.25s;
+.s6-dots {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 5px 0;
+  justify-items: center;
+  margin-top: 10px;
 }
-.s6-dot.on { background: #ffcf7a; box-shadow: 0 0 6px rgba(255, 207, 122, 0.9); transform: scale(1.15); }
-.s6-cap-small { margin-top: 9px; font-size: 12px; letter-spacing: 0.22em; color: #ffcf7a; }
+.s6-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: rgba(70, 35, 90, 0.08);
+  box-shadow: inset 0 0 0 1.5px rgba(70, 35, 90, 0.2);
+}
+/* 打穿：露出纸背后的深色，边缘有一点压痕 */
+.s6-dot.on {
+  background: var(--s6-ink);
+  box-shadow: inset 0 2px 2px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.85);
+  animation: s6-punch 0.2s ease-out;
+}
+@keyframes s6-punch { 0% { transform: scale(1.5); } }
+.s6-cap-small {
+  margin-top: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--s6-rose);
+}
+.s6-next {
+  display: block;
+  margin: 10px auto 2px;
+  min-height: 44px;
+  padding: 8px 30px;
+  font: inherit;
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  color: var(--s6-paper);
+  background: var(--s6-ink);
+  border: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  animation: s6-next-in 0.4s cubic-bezier(.2,1.4,.4,1) both;
+}
+.s6-next:active { transform: translateY(2px); }
+.s6-next:focus-visible { outline: 3px solid var(--s6-gold); outline-offset: 2px; }
+@keyframes s6-next-in { from { opacity: 0; transform: translateY(8px); } }
+
+/* ---------- 点格子弹出的便签 ---------- */
+.s6-pop {
+  position: absolute;
+  z-index: 3;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(240px, calc(100vw - 24px));
+  padding: 9px 13px 10px;
+  text-align: center;
+  color: var(--s6-ink);
+  background: var(--s6-paper);
+  box-shadow: 0 3px 0 rgba(70, 35, 90, 0.25), 0 12px 24px rgba(20, 4, 40, 0.4);
+  transform: translate(-50%, calc(-100% - 8px)) scale(0.8);
+  transform-origin: 50% 100%;
+  opacity: 0;
+  transition: opacity 0.16s ease, transform 0.26s cubic-bezier(.2,1.5,.4,1);
+}
+.s6-pop.on { opacity: 1; transform: translate(-50%, calc(-100% - 16px)) scale(1); }
+.s6-pop.below { transform: translate(-50%, 8px) scale(0.8); transform-origin: 50% 0; }
+.s6-pop.below.on { transform: translate(-50%, 28px) scale(1); }
+.s6-pop-date { font-size: 12px; font-weight: 700; color: var(--s6-rose); }
+.s6-pop-text { margin-top: 2px; font-size: 14px; line-height: 1.55; word-break: break-word; }
+
+/* ---------- 矮屏 ---------- */
+@media (max-height: 640px) {
+  .s6-caption { padding: 10px 14px 9px; }
+  .s6-cap-main { font-size: 13px; line-height: 1.5; }
+  .s6-dot { width: 10px; height: 10px; }
+  .s6-next { min-height: 40px; margin-top: 7px; }
+  .s6-caption ~ .s6-hint { bottom: calc(190px + var(--s6-safe-b)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s6-die.idle, .s6-hint-arrow, .s6-hud.pop, .s6-dot.on, .s6-next { animation: none; }
+}

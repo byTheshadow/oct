@@ -1,13 +1,15 @@
 /* =========================================================
- * Scene 6 · 飞行棋（2.5D 纸艺棋盘版）
+ * Scene 6 · 飞行棋（2.5D 纸艺棋盘 · 亲手玩版）
  *   白团子："……接下来，要靠骰子啦。"
  *   等距视角的 6×6 蛇形棋盘：33 个纸片格 = 10月1日 到 11月2日（Scene 5 滚轮能填的整个范围）。
  *   有故事的日子标 ♪，小寒自己填的那天（App.state.userDay）金色描边 + 红心。
- *   点骰子：放大冲出屏幕，全屏甩动 + 慢动作弹跳 + 手机震动，点数其实固定是 6
- *   （连点骰子白团子会吐槽）。之后一张信纸飘下来，被一步步折成纸飞机：
- *   对折 → 折顶角 → 折两侧斜边 → 翅膀抬起。折好的飞机转向、缩小飞到起点，
- *   镜头跟着它沿棋盘一路飞到"一半"降落，拉远；10月8日–10月28日 连续 21 格依次亮起，
- *   浮出那句话和"已打卡 21 天 · 目标 30 天"。
+ *
+ *   这一章从"看动画"改成"亲手玩"，每一步都由手指驱动，放着不动也会自己往下走：
+ *   1. 骰子：按住蓄力，松手掷出（点数其实固定是 6，连点骰子白团子会吐槽）
+ *   2. 折纸：手指拖动纸张，折多少由手指决定，共四折，折成纸飞机
+ *   3. 飞行：按住加速，拖动转向，沿途接住音符
+ *   4. 打卡：在屏幕上来回划，10月8日–10月28日 的 21 格依次亮起
+ *   5. 翻看：点棋盘上任意一天看那天的内容，点"继续"才进入下一章
  *
  * 不用 three 舞台（config.chapters.scene6 里 stage:false），整章一张 2D canvas + 少量 DOM。
  *
@@ -26,6 +28,20 @@ App.director.register('scene6', {
     const self = this;
     const clamp = U.clamp, lerp = U.lerp;
     const FONT = '"Noto Sans SC", "PingFang SC", system-ui, sans-serif';
+    const REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+    // 文案兜底：config 里没写这些 key 也能跑
+    const TX = {
+      dieHint: T.dieHint || '按住骰子蓄力，松手掷出',
+      folds: T.foldHints || ['向左拖，把信纸对折', '向下拖，把两个角折向中线', '向下拖，两边再折一次', '向上拨，抬起翅膀'],
+      flyHint: T.flyHint || '按住加速，拖动转向，接住音符',
+      allNotes: T.allNotes || '音符全接住了！',
+      lightHint: T.lightHint || '在屏幕上来回划，点亮这些日子',
+      exploreHint: T.exploreHint || '点一点格子，看看那一天',
+      emptyDay: T.emptyDay || '这一天还没有故事',
+      checkedDay: T.checkedDay || '这一天打过卡',
+      next: T.next || '继续'
+    };
 
     const ov = document.getElementById('overlay');
     ov.className = 'active';
@@ -57,7 +73,6 @@ App.director.register('scene6', {
     }
     const checkFrom = dateIndex(BD.checkFrom.m, BD.checkFrom.d);
     const checkTo = dateIndex(BD.checkTo.m, BD.checkTo.d);
-    const checkedDays = checkTo - checkFrom + 1;
     const landIdx = Math.floor((DAYS - 1) / 2);               // 飞到"一半"降落
 
     const eventIdx = new Set();
@@ -90,6 +105,17 @@ App.director.register('scene6', {
     function proj(u, v, z) {
       const kz = K * cam.zoom, du = u - cam.u, dv = v - cam.v;
       return [ox + kz * (du - dv), oy + kz * (RS * (du + dv) - ZS * (z - cam.z))];
+    }
+    // 屏幕点 → 棋盘格（z≈0 平面上反投影）
+    function tileAt(x, y) {
+      const kz = K * cam.zoom, X = (x - ox) / kz, Y = (y - oy) / kz / RS;
+      const u = cam.u + (X + Y) / 2, v = cam.v + (Y - X) / 2;
+      let best = null, bd = 0.72;
+      for (const tl of tiles) {
+        const d = Math.max(Math.abs(tl.u - u), Math.abs(tl.v - v));
+        if (d < bd) { bd = d; best = tl; }
+      }
+      return best;
     }
 
     // ---------- 背景素材 ----------
@@ -149,9 +175,13 @@ App.director.register('scene6', {
       H = ov.clientHeight || window.innerHeight;
       canvas.width = Math.round(W * dpr);
       canvas.height = Math.round(H * dpr);
-      K = clamp((W - 30) / ((COLS - 1 + ROWS - 1) + 1.9), 22, 42);
+      // 同时受宽和高限制：矮屏、横屏下棋盘也放得下，并给底部纸条留位置
+      const span = (COLS - 1 + ROWS - 1) + 1.9;
+      const byW = (W - 30) / span;
+      const byH = (H * 0.56) / (span * RS + 1.4);
+      K = clamp(Math.min(byW, byH), 16, 46);
       ox = W / 2;
-      oy = H * 0.54;
+      oy = H * 0.47;
       sheet.S = Math.min(H * 0.4, 340, W * 0.8 * 1.35) / 1.35;
       sheet.ox = W / 2;
       sheet.oy = H * 0.47;
@@ -491,6 +521,7 @@ App.director.register('scene6', {
     let boardAlpha = 0, dim = 0, shakeAmp = 0, t = 0;
     let entering = false, entT0 = 0;
     let following = false;
+    let selectedTile = null;
 
     function drawBackground(dt) {
       const sky = PAL.sky;
@@ -615,6 +646,11 @@ App.director.register('scene6', {
       g.lineWidth = 1;
       g.strokeStyle = `rgba(255,255,255,${0.35 + tl.lit * 0.4})`;
       g.stroke();
+      // 翻看时选中的格子：白色描边
+      if (tl === selectedTile) {
+        g.strokeStyle = '#ffffff'; g.lineWidth = 2.5;
+        g.stroke();
+      }
       // 小寒填的那天：金边 + 呼吸
       if (tl.i === userIdx) {
         const pul = 0.5 + 0.5 * Math.sin(t * 3);
@@ -659,12 +695,79 @@ App.director.register('scene6', {
       g.globalAlpha = 1;
     }
 
+    const tileOrder = tiles.slice().sort((p, q) => (p.u + p.v) - (q.u + q.v));
     function drawBoard() {
-      const order = tiles.slice().sort((p, q) => (p.u + p.v) - (q.u + q.v));
-      for (const tl of order) drawTile(tl);
+      for (const tl of tileOrder) drawTile(tl);
       drawFlag(tiles[0], '#ff8fb3', 0);
       drawFlag(tiles[DAYS - 1], '#ffd35c', 1.7);
     }
+
+    // ---------- 飞行途中要接的音符 ----------
+    const notes = [];
+    function seedNotes() {
+      notes.length = 0;
+      let side = 1;
+      for (let i = 1; i <= landIdx; i++) {
+        if (!eventIdx.has(i)) continue;
+        // 放在路线一侧，要转向才接得到；屏幕横向 = (u+, v-)
+        notes.push({ i, u: tiles[i].u + side * 0.3, v: tiles[i].v - side * 0.3, z: 0.95, got: false, ph: i * 1.3, mine: i === userIdx });
+        side = -side;
+      }
+    }
+    function drawNotes() {
+      if (!fl.active) return;
+      const kz = K * cam.zoom;
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      for (const n of notes) {
+        if (n.got) continue;
+        const p = proj(n.u, n.v, n.z + Math.sin(t * 3 + n.ph) * 0.08);
+        const r = kz * 0.7;
+        g.globalCompositeOperation = 'lighter';
+        g.globalAlpha = 0.8;
+        g.drawImage(glowSprite('#ffd35c'), p[0] - r, p[1] - r, r * 2, r * 2);
+        g.globalCompositeOperation = 'source-over';
+        g.globalAlpha = 1;
+        g.font = `700 ${Math.round(kz * 0.62)}px ${FONT}`;
+        g.fillStyle = n.mine ? '#ff4f86' : '#fff4d0';
+        g.fillText(n.mine ? '♥' : '♪', p[0], p[1]);
+      }
+      g.globalAlpha = 1;
+    }
+
+    // =========================================================
+    // 手势输入：整章共用一套，由当前阶段决定怎么解释
+    // =========================================================
+    const input = { down: false, sx: 0, sy: 0, x: 0, y: 0, moved: false, mode: '', fold: null, scrub: 0 };
+    function localXY(e) {
+      const r = canvas.getBoundingClientRect();
+      return [e.clientX - r.left, e.clientY - r.top];
+    }
+    function onDown(e) {
+      if (e.target && e.target.closest && e.target.closest('button')) return;
+      const [x, y] = localXY(e);
+      input.down = true; input.moved = false;
+      input.sx = input.x = x; input.sy = input.y = y;
+      if (input.fold) input.fold.down(x, y);
+      if (input.mode === 'explore') pickTile(x, y);
+    }
+    function onMove(e) {
+      if (!input.down) return;
+      const [x, y] = localXY(e);
+      const step = Math.hypot(x - input.x, y - input.y);
+      input.x = x; input.y = y;
+      if (Math.hypot(x - input.sx, y - input.sy) > 8) input.moved = true;
+      if (input.fold) input.fold.move(x, y);
+      if (input.mode === 'light') input.scrub += step;
+    }
+    function onUp() {
+      if (!input.down) return;
+      input.down = false;
+      if (input.fold) input.fold.up(input.moved);
+    }
+    ov.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
 
     // =========================================================
     // 帧循环
@@ -699,9 +802,16 @@ App.director.register('scene6', {
       const a = path.pts[lo], b = path.pts[hi];
       return { u: a[0] + (b[0] - a[0]) * f, v: a[1] + (b[1] - a[1]) * f, psi: Math.atan2(b[1] - a[1], b[0] - a[0]) };
     }
-    const fl = { active: false, s: 0, lastTile: -1 };
+    const FLY_SEC = 8.2;                                        // 全程不碰屏幕时大约飞这么久
+    const fl = { active: false, s: 0, v: 0, lastTile: -1, ou: 0, ov: 0, got: 0 };
 
     function updateFlight(dt) {
+      const sn0 = fl.s / path.len;
+      const base = path.len / FLY_SEC * 1.15;
+      const ramp = (0.45 + 0.55 * smooth(0, 0.12, sn0)) * (1 - 0.65 * smooth(0.9, 1, sn0));
+      const boost = input.down ? 1.7 : 1;
+      fl.v += (base * ramp * boost - fl.v) * (1 - Math.exp(-dt * 4));
+      fl.s = Math.min(path.len, fl.s + fl.v * dt);
       const sn = fl.s / path.len;
       const p = pathAt(fl.s);
       const look = pathAt(fl.s + 0.7);
@@ -709,7 +819,19 @@ App.director.register('scene6', {
       plane.psi += angDiff(look.psi, plane.psi) * (1 - Math.exp(-dt * 7));
       const rate = angDiff(plane.psi, prevPsi) / Math.max(dt, 1e-3);
       plane.roll += (clamp(rate * 0.17, -0.85, 0.85) - plane.roll) * (1 - Math.exp(-dt * 6));
-      plane.u = p.u; plane.v = p.v;
+      // 转向：手指在屏幕上的位移换算成世界偏移，松手回到航线；临近降落时收回
+      let tu = 0, tv = 0;
+      if (input.down) {
+        const kz = K * cam.zoom;
+        const X = (input.x - input.sx) / kz * 1.2, Y = (input.y - input.sy) / kz / RS * 1.2;
+        tu = (X + Y) / 2; tv = (Y - X) / 2;
+        const m = Math.hypot(tu, tv);
+        if (m > 0.85) { tu *= 0.85 / m; tv *= 0.85 / m; }
+      }
+      const keep = 1 - smooth(0.88, 0.98, sn);
+      fl.ou += (tu * keep - fl.ou) * (1 - Math.exp(-dt * 9));
+      fl.ov += (tv * keep - fl.ov) * (1 - Math.exp(-dt * 9));
+      plane.u = p.u + fl.ou; plane.v = p.v + fl.ov;
       const zT = lerp(0.35, 1.0, smooth(0, 0.14, sn)) + 0.09 * Math.sin(sn * Math.PI * 7) - 0.88 * smooth(0.9, 1, sn);
       const dz = zT - plane.z;
       plane.z += dz * (1 - Math.exp(-dt * 8));
@@ -729,11 +851,21 @@ App.director.register('scene6', {
         const sc = [0, 2, 4, 7, 9, 12, 14, 16];
         A.blip({ freq: CFG.COIN_BASE_HZ * Math.pow(2, sc[nearest % sc.length] / 12), type: 'sine', vol: 0.028, dur: 0.5, jitter: 0 });
       }
+      // 接音符
+      for (const n of notes) {
+        if (n.got || Math.hypot(n.u - plane.u, n.v - plane.v) > 0.42) continue;
+        n.got = true;
+        fl.got++;
+        A.coin(Math.min(fl.got * 2, 10));
+        vibrate(18);
+        burst(n.u, n.v, n.z, 12, n.mine ? ['#ff8fb3', '#ffd35c'] : ['#ffd35c', '#fff4d0'], { type: 'dot', speed: 0.7, up: 0.6 });
+        updateHud();
+      }
       // 相机
       if (following) {
-        const tu = plane.u + Math.cos(plane.psi) * 0.9, tv = plane.v + Math.sin(plane.psi) * 0.9;
+        const lu = plane.u + Math.cos(plane.psi) * 0.9, lv = plane.v + Math.sin(plane.psi) * 0.9;
         const k = 1 - Math.exp(-dt * 3.4);
-        cam.u += (tu - cam.u) * k; cam.v += (tv - cam.v) * k;
+        cam.u += (lu - cam.u) * k; cam.v += (lv - cam.v) * k;
       }
       cam.roll += (-plane.roll * 0.05 - cam.roll) * (1 - Math.exp(-dt * 3));
     }
@@ -745,6 +877,7 @@ App.director.register('scene6', {
       if (!(dt > 0)) dt = 0.016;
       dt = Math.min(dt, 0.05);
       t += dt;
+      sheet.bob = sheet.bobbing ? Math.sin(t * 1.8) * 3 : sheet.bob;
 
       if (shakeAmp > 0.25) {
         ov.style.transform = `translate(${((Math.random() - 0.5) * shakeAmp).toFixed(1)}px, ${((Math.random() - 0.5) * shakeAmp).toFixed(1)}px)`;
@@ -770,6 +903,7 @@ App.director.register('scene6', {
       }
       drawBackground(dt);
       if (boardAlpha > 0.01) drawBoard();
+      drawNotes();
       drawParts(dt);
       drawTrail(dt);
       drawPlaneGroundShadow();
@@ -787,7 +921,7 @@ App.director.register('scene6', {
     // =========================================================
     // 工具
     // =========================================================
-    function shake(amp) { shakeAmp = Math.max(shakeAmp, amp); }
+    function shake(amp) { if (!REDUCED) shakeAmp = Math.max(shakeAmp, amp); }
     function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) { /* 忽略 */ } }
     const tween = (ms, fn, ease) => U.tween(ms, (e, k) => { if (ctx.alive()) fn(e, k); }, ease);
     function rustle(n, vol) {
@@ -795,7 +929,21 @@ App.director.register('scene6', {
         if (ctx.alive()) A.blip({ freq: 2200 + Math.random() * 2800, type: 'square', vol: vol * (0.6 + Math.random() * 0.6), dur: 0.02, jitter: 0.5 });
       }, k * 26);
     }
-    function worldToScreenXY(u, v, z) { return proj(u, v, z); }
+
+    // 底部的操作提示：一张小纸条
+    let hintEl = null;
+    function setHint(text, dir) {
+      if (hintEl) { const old = hintEl; old.classList.remove('on'); setTimeout(() => old.remove(), 300); hintEl = null; }
+      if (!text) return;
+      const el = U.el('div', 's6-hint', layer);
+      if (dir) {
+        const arrow = U.el('span', 's6-hint-arrow', el, '➜');
+        arrow.style.setProperty('--r', Math.atan2(dir[1], dir[0]).toFixed(3) + 'rad');
+      }
+      U.el('span', null, el, text);
+      requestAnimationFrame(() => el.classList.add('on'));
+      hintEl = el;
+    }
 
     // ---------- 骰子 ----------
     const PIPS = { 1: [[4, 4]], 2: [[2, 2], [6, 6]], 3: [[2, 2], [4, 4], [6, 6]], 4: [[2, 2], [2, 6], [6, 2], [6, 6]], 5: [[2, 2], [2, 6], [4, 4], [6, 2], [6, 6]], 6: [[2, 2], [4, 2], [6, 2], [2, 6], [4, 6], [6, 6]] };
@@ -811,6 +959,8 @@ App.director.register('scene6', {
     }
     const die = U.el('button', 's6-die', layer);
     die.type = 'button';
+    die.setAttribute('aria-label', TX.dieHint);
+    const dieRing = U.el('span', 's6-die-ring', die);
     const dieCv = U.el('canvas', null, die);
     dieCv.width = faces[1].width; dieCv.height = faces[1].height;
     const dg = dieCv.getContext('2d');
@@ -823,18 +973,62 @@ App.director.register('scene6', {
       die.style.transform = `translate(-50%, calc(-50% + ${ty.toFixed(1)}px)) rotate(${rot.toFixed(3)}rad) scale(${scale.toFixed(3)})`;
     }
 
-    let thrown = false, extraTaps = 0, nagged = false, onThrow = null;
+    // 按住蓄力：骰子压扁发抖，音调升高；松手掷出。蓄力越满，后面甩得越狠
+    let thrown = false, extraTaps = 0, nagged = false, onThrow = null, power = 0;
+    let dieReady = false, chargeTimer = 0, chargeT0 = 0;
     const thrownP = new Promise((res) => { onThrow = res; });
-    die.addEventListener('click', () => {
+    function stopCharge() {
+      clearInterval(chargeTimer); chargeTimer = 0;
+      dieRing.style.setProperty('--p', '0');
+    }
+    function startCharge() {
+      if (chargeTimer) return;
+      chargeT0 = performance.now();
+      die.classList.remove('idle');
+      let lastStep = -1;
+      chargeTimer = setInterval(() => {
+        if (!ctx.alive()) { stopCharge(); return; }
+        power = clamp((performance.now() - chargeT0) / 1100, 0, 1);
+        dieRing.style.setProperty('--p', power.toFixed(3));
+        const jit = REDUCED ? 0 : power * 3;
+        dieXform(1 - power * 0.14, (Math.random() - 0.5) * jit, (Math.random() - 0.5) * jit * 0.02);
+        const st = Math.floor(power * 6);
+        if (st !== lastStep) {
+          lastStep = st;
+          A.blip({ freq: 260 * Math.pow(2, st / 6), type: 'triangle', vol: 0.03, dur: 0.07, jitter: 0 });
+          vibrate(6 + st * 3);
+        }
+      }, 30);
+    }
+    function release() {
+      if (!chargeTimer) return;
+      stopCharge();
+      dieRing.remove();
+      thrown = true;
+      onThrow();
+    }
+    die.addEventListener('pointerdown', (e) => {
       if (!ctx.alive()) return;
-      if (!thrown) { thrown = true; onThrow(); return; }
-      extraTaps++;
-      A.blip({ freq: 300 + extraTaps * 40, type: 'square', vol: 0.02, dur: 0.05, jitter: 0 });
-      if (extraTaps >= 3 && !nagged) { nagged = true; App.companion.say(T.nag, { small: true, hold: 1600 }); }
+      if (thrown) {
+        extraTaps++;
+        A.blip({ freq: 300 + extraTaps * 40, type: 'square', vol: 0.02, dur: 0.05, jitter: 0 });
+        if (extraTaps >= 3 && !nagged) { nagged = true; App.companion.say(T.nag, { small: true, hold: 1600 }); }
+        return;
+      }
+      if (!dieReady) return;
+      try { die.setPointerCapture(e.pointerId); } catch (err) { /* 旧浏览器 */ }
+      startCharge();
+    });
+    die.addEventListener('pointerup', release);
+    die.addEventListener('pointercancel', release);
+    die.addEventListener('click', (e) => {                     // 键盘（Enter / 空格）直接掷出
+      if (e.detail !== 0 || thrown || !dieReady) return;
+      power = 0.6; thrown = true; dieRing.remove(); onThrow();
     });
 
     async function throwDie() {
       const y0 = dieY, y1 = H * 0.5;
+      const pw = 0.6 + power * 0.4;
       vibrate([30, 30, 60]);
       A.whoosh(0.07, 0.5);
       await tween(320, (e) => { dieY = lerp(y0, y1, e); dieXform(1 + 1.9 * e, -20 * e, e * 0.6); }, U.ease.outCubic);
@@ -843,9 +1037,9 @@ App.director.register('scene6', {
       let bounce = 0, nextSwap = 0;
       await tween(DUR, (e, k) => {
         const ms = k * DUR, phase = k * 3, b = Math.floor(phase), f = phase - b, decay = 1 - k * 0.7;
-        dieXform(2.9 + Math.sin(Math.PI * f) * 0.7 * decay, -Math.sin(Math.PI * f) * 150 * decay, 0.6 + k * 5.2 * (1 - k * 0.5) + Math.sin(ms / 90) * 0.12 * (1 - k));
+        dieXform(2.9 + Math.sin(Math.PI * f) * 0.7 * decay, -Math.sin(Math.PI * f) * 150 * pw * decay, 0.6 + k * 5.2 * (1 - k * 0.5) + Math.sin(ms / 90) * 0.12 * (1 - k));
         if (b > bounce) {
-          bounce = b; shake(16 - b * 3); A.click(0.2);
+          bounce = b; shake((16 - b * 3) * pw); A.click(0.2);
           A.blip({ freq: 120, type: 'sine', vol: 0.1, dur: 0.18, jitter: 0 });
           vibrate(b === 2 ? 90 : 45);
         }
@@ -864,8 +1058,48 @@ App.director.register('scene6', {
     }
 
     // =========================================================
-    // 折纸时间线
+    // 折纸：每一折都跟手
+    //   hint：提示文字；dir：屏幕上的拖动方向；dist：拖满需要的像素；apply(p)：p∈[0,1] 时纸的姿态
+    //   过半松手自动折完，不到一半弹回；轻点一下直接折完；12 秒没动静也自动折完
     // =========================================================
+    function foldGesture(hint, dir, dist, apply) {
+      return new Promise((resolve) => {
+        let p = 0, base = 0, sx = 0, sy = 0, done = false, token = 0, lastSound = 0;
+        if (input.down) { sx = input.x; sy = input.y; }     // 上一步手指还没抬起时，从当前位置算起
+        setHint(hint, dir);
+        const finish = async () => {
+          if (done) return;
+          done = true; token++;
+          input.fold = null;
+          clearTimeout(auto);
+          setHint(null);
+          const from = p;
+          await tween(120 + 240 * (1 - from), (e) => apply(lerp(from, 1, e)), U.ease.outCubic);
+          vibrate(16);
+          resolve();
+        };
+        const auto = setTimeout(() => {
+          if (!ctx.alive()) { resolve(); return; }
+          if (!input.down) finish();
+        }, 12000);
+        input.fold = {
+          down(x, y) { token++; sx = x; sy = y; base = p; },
+          move(x, y) {
+            const d = ((x - sx) * dir[0] + (y - sy) * dir[1]) / dist;
+            p = clamp(base + d, 0, 1);
+            apply(p);
+            if (Math.abs(p - lastSound) > 0.14) { lastSound = p; rustle(2, 0.011); vibrate(4); }
+            if (p >= 0.98) finish();
+          },
+          up(moved) {
+            if (!moved || p >= 0.5) { finish(); return; }
+            const from = p, my = ++token;
+            tween(240, (e) => { if (my === token) { p = lerp(from, 0, e); apply(p); } }, U.ease.outCubic);
+          }
+        };
+      });
+    }
+
     async function foldPlane() {
       makeSheet();
       sheet.on = true; sheet.morph = 0; sheet.phi = 0; sheet.sc = 1; sheet.alpha = 0; sheet.shadow = 1;
@@ -883,17 +1117,13 @@ App.director.register('scene6', {
       }, U.ease.outCubic);
       if (!ctx.alive()) return;
       sheet.phi = 0; sheet.sc = 1; sheet.oy = oy0;
-      const bob = () => { sheet.bob = Math.sin(t * 1.8) * 3; };
-      const bobTimer = setInterval(bob, 16);
-      self._bobTimer = bobTimer;
-      await U.sleep(450);
-      if (!ctx.alive()) return;
+      sheet.bobbing = true;
+      const reach = sheet.S * 0.8;
 
       // 2) 对折，再展开，留下中线折痕
       let o1 = addOp([0, 0], [1, 0], 'flap');
       splitAll(o1);
-      rustle(7, 0.011);
-      await tween(780, (e) => { ops[o1].theta = Math.PI * e; }, U.ease.inOutCubic);
+      await foldGesture(TX.folds[0], [-1, 0], reach, (p) => { ops[o1].theta = Math.PI * p; });
       if (!ctx.alive()) return;
       A.click(0.1);
       await U.sleep(160);
@@ -902,7 +1132,7 @@ App.director.register('scene6', {
       if (!ctx.alive()) return;
       releaseFold(o1);
       creases.push([0, -SH / 2, 0, SH / 2]);
-      await U.sleep(300);
+      await U.sleep(160);
       if (!ctx.alive()) return;
 
       // 3) 两个上角折到中线
@@ -910,50 +1140,46 @@ App.director.register('scene6', {
       const q = Math.SQRT1_2;
       let oL = addOp(apex, [-q, -q], 'flap'); splitAll(oL);
       let oR = addOp(apex, [q, -q], 'flap'); splitAll(oR);
-      rustle(8, 0.012);
-      await tween(900, (e) => { ops[oL].theta = Math.PI * e; ops[oR].theta = Math.PI * e; }, U.ease.inOutCubic);
+      await foldGesture(TX.folds[1], [0, 1], reach, (p) => { ops[oL].theta = Math.PI * p; ops[oR].theta = Math.PI * p; });
       if (!ctx.alive()) return;
       A.click(0.12);
       commitFold(oL); commitFold(oR);
-      await U.sleep(380);
+      await U.sleep(180);
       if (!ctx.alive()) return;
 
       // 4) 两条斜边再折到中线
       const c22 = Math.cos(Math.PI / 8), s22 = Math.sin(Math.PI / 8);
       let o3 = addOp(apex, [-c22, -s22], 'flap'); splitAll(o3);
       let o4 = addOp(apex, [c22, -s22], 'flap'); splitAll(o4);
-      rustle(8, 0.012);
-      await tween(950, (e) => { ops[o3].theta = Math.PI * e; ops[o4].theta = Math.PI * e; }, U.ease.inOutCubic);
+      await foldGesture(TX.folds[2], [0, 1], reach, (p) => { ops[o3].theta = Math.PI * p; ops[o4].theta = Math.PI * p; });
       if (!ctx.alive()) return;
       A.click(0.12);
       commitFold(o3); commitFold(o4);
-      await U.sleep(420);
+      await U.sleep(180);
       if (!ctx.alive()) return;
 
       // 5) 翅膀抬起
       let wL = addOp([0, 0], [-1, 0], 'wing'); splitAll(wL);
       let wR = addOp([0, 0], [1, 0], 'wing'); splitAll(wR);
-      rustle(6, 0.01);
+      await foldGesture(TX.folds[3], [0, -1], reach * 0.6, (p) => { ops[wL].theta = 0.62 * p; ops[wR].theta = 0.62 * p; });
+      if (!ctx.alive()) return;
       A.coin(4); A.coin(6);
-      await tween(900, (e) => { ops[wL].theta = 0.62 * e; ops[wR].theta = 0.62 * e; }, U.ease.outBack);
+      await U.sleep(450);
       if (!ctx.alive()) return;
-      burst(0, 0, 0, 0, PAL.tiles);                              // 占位，保持调用形式一致
-      await U.sleep(500);
-      if (!ctx.alive()) return;
-      clearInterval(bobTimer); self._bobTimer = null;
+      sheet.bobbing = false;
     }
 
     // 折好的飞机转向、缩小、飞到起点
     async function takeOff() {
       const start = pathAt(0.001);
-      const kz1 = K * 1.35;
       // 屏幕上的目标朝向：沿路径方向的屏幕向量
       const fu = Math.cos(start.psi), fv = Math.sin(start.psi);
       const hx = fu - fv, hy = RS * (fu + fv);
       const phiT = Math.atan2(hx, -hy);
+      const bob0 = sheet.bob;
       A.whoosh(0.06, 1.4);
       // 在屏幕里先转向并轻轻抬头
-      await tween(700, (e) => { sheet.phi = phiT * e; sheet.bob = Math.sin(t * 1.8) * 3 * (1 - e); }, U.ease.inOutCubic);
+      await tween(700, (e) => { sheet.phi = phiT * e; sheet.bob = bob0 * (1 - e); }, U.ease.inOutCubic);
       if (!ctx.alive()) return;
       sheet.bob = 0;
       // 缩小，飞向起点；相机同时拉近
@@ -971,26 +1197,54 @@ App.director.register('scene6', {
       burst(plane.u, plane.v, 0.4, 14, ['#fff4e8', '#ffd0b8', '#ffb3c8'], { type: 'dot', speed: 0.7 });
     }
 
+    // 飞行小计分：只是彩蛋，接不到也不影响往下走
+    let hudEl = null;
+    function updateHud() {
+      if (!hudEl) return;
+      hudEl.textContent = `♪ ${fl.got} / ${notes.length}`;
+      hudEl.classList.remove('pop');
+      void hudEl.offsetWidth;
+      hudEl.classList.add('pop');
+    }
+
     async function flyAlong() {
+      seedNotes();
+      if (notes.length) {
+        hudEl = U.el('div', 's6-hud', layer);
+        hudEl.textContent = `♪ 0 / ${notes.length}`;
+      }
+      setHint(TX.flyHint);
+      fl.s = 0; fl.v = 0; fl.ou = 0; fl.ov = 0; fl.got = 0;
       fl.active = true; following = true; fl.lastTile = -1;
       A.whoosh(0.06, 3.2);
       A.coin(2); A.coin(4);
-      const FLY = 8200;
       tween(2600, (e) => { cam.zoom = lerp(1.35, 1.78, e); }, U.ease.inOutCubic);
-      await tween(FLY, (e) => { fl.s = path.len * e; }, (x) => x < 0.5 ? 2 * x * x * 0.55 + x * 0.45 : 1 - Math.pow(-2 * x + 2, 2) * 0.55 / 2 - (1 - x) * 0.0);
-      if (!ctx.alive()) return;
-      fl.s = path.len;
+      setTimeout(() => { if (ctx.alive()) setHint(null); }, 3200);
+      while (fl.s < path.len) {
+        await U.sleep(50);
+        if (!ctx.alive()) return;
+      }
       // 降落：平稳落到那一格，弹一下
       const T0 = tiles[landIdx];
       A.whoosh(0.04, 0.5);
-      await tween(420, (e) => { plane.z = lerp(plane.z, 0.1, e); plane.pitch = lerp(plane.pitch, 0.08, e); plane.roll = lerp(plane.roll, 0, e); }, U.ease.outQuad);
       fl.active = false;
+      const z0p = plane.z, pt0 = plane.pitch, r0 = plane.roll, u0p = plane.u, v0p = plane.v;
+      await tween(420, (e) => {
+        plane.z = lerp(z0p, 0.1, e); plane.pitch = lerp(pt0, 0.08, e); plane.roll = lerp(r0, 0, e);
+        plane.u = lerp(u0p, T0.u, e); plane.v = lerp(v0p, T0.v, e);
+      }, U.ease.outQuad);
+      if (!ctx.alive()) return;
       plane.u = T0.u; plane.v = T0.v; plane.roll = 0;
       T0.popV = 7;
       shake(6); vibrate(60); A.click(0.16);
       A.coin(2); A.coin(4); A.coin(6);
       burst(T0.u, T0.v, 0.3, 36, null, { speed: 1.1, up: 1.1 });
       parts.push(...Array.from({ length: 8 }, () => ({ u: T0.u, v: T0.v, z: 0.3, vu: U.rand(-0.5, 0.5), vv: U.rand(-0.5, 0.5), vz: U.rand(1.5, 2.6), age: 0, max: U.rand(1.3, 2), type: 'heart', color: '#ff7fa8', size: U.rand(0.07, 0.11), rot: 0, vr: 0 })));
+      if (hudEl) {
+        if (notes.length && fl.got === notes.length) hudEl.textContent = TX.allNotes;
+        const h = hudEl; hudEl = null;
+        setTimeout(() => h.classList.add('off'), 1600);
+      }
       await U.sleep(700);
       if (!ctx.alive()) return;
       // 镜头拉远
@@ -1004,48 +1258,112 @@ App.director.register('scene6', {
       }, U.ease.inOutCubic);
     }
 
+    // 打卡：手指每划过一段就点亮下一天；停手 2.6 秒后自动亮完
     async function lightChecks() {
-      for (let i = checkFrom; i <= checkTo; i++) {
+      const PER_TILE = 16;
+      input.mode = 'light';
+      input.scrub = 0;
+      setHint(TX.lightHint);
+      let i = checkFrom, idle = 0, tick = 0;
+      while (i <= checkTo) {
+        await U.sleep(30);
+        if (!ctx.alive()) return;
+        tick++;
+        idle = input.down ? 0 : idle + 30;
+        let go = false;
+        if (input.scrub >= PER_TILE) { input.scrub -= PER_TILE; go = true; }
+        else if (idle > 2600 && tick % 3 === 0) go = true;
+        if (!go) continue;
         tiles[i].target = 1;
         tiles[i].popV = 5;
         A.coin((i - checkFrom) % 9);
+        vibrate(5);
         if (i === userIdx) burst(tiles[i].u, tiles[i].v, 0.3, 14, ['#ffd35c', '#ffe9a8'], { type: 'dot' });
         updateDots(i - checkFrom + 1);
-        await U.sleep(95);
-        if (!ctx.alive()) return;
+        i++;
       }
+      input.mode = '';
+      setHint(null);
       A.coin(5); A.coin(7); A.coin(9);
     }
 
-    // ---------- 字幕：毛玻璃卡片 + 30 个小点 ----------
-    let dotEls = [];
+    // ---------- 翻看：点格子看那一天 ----------
+    function dayText(tl) {
+      const dd = indexDate(tl.i);
+      if (tl.i === userIdx && ud && ud.text) return `「${ud.text}」`;
+      const card = (CFG.text.scene5.cards || []).find((c) => c.m === dd.m && c.d === dd.d);
+      const page = card && card.pages && card.pages[0];
+      if (page) return page.title || page.text;
+      return tl.target ? TX.checkedDay : TX.emptyDay;
+    }
+    let popEl = null;
+    function pickTile(x, y) {
+      const tl = tileAt(x, y);
+      if (popEl) { const old = popEl; old.classList.remove('on'); setTimeout(() => old.remove(), 180); popEl = null; }
+      selectedTile = tl;
+      if (!tl) return;
+      tl.popV = 6;
+      A.blip({ freq: CFG.COIN_BASE_HZ * Math.pow(2, [0, 2, 4, 7, 9][tl.i % 5] / 12), type: 'sine', vol: 0.03, dur: 0.3, jitter: 0 });
+      vibrate(8);
+      const dd = indexDate(tl.i);
+      const p = proj(tl.u, tl.v, 0.2);
+      const el = U.el('div', 's6-pop', layer);
+      U.el('div', 's6-pop-date', el, `${dd.m}月${dd.d}日`);
+      U.el('div', 's6-pop-text', el, dayText(tl));
+      const hw = Math.min(120, (W - 24) / 2);
+      el.style.left = clamp(p[0], hw + 12, W - hw - 12) + 'px';
+      el.style.top = p[1] + 'px';
+      if (p[1] < H * 0.3) el.classList.add('below');
+      requestAnimationFrame(() => el.classList.add('on'));
+      popEl = el;
+    }
+    function explore() {
+      return new Promise((resolve) => {
+        input.mode = 'explore';
+        setHint(TX.exploreHint);
+        const btn = U.el('button', 's6-next px-btn', captionEl, TX.next);
+        btn.type = 'button';
+        requestAnimationFrame(() => btn.classList.add('on'));
+        btn.addEventListener('click', () => {
+          input.mode = '';
+          selectedTile = null;
+          setHint(null);
+          A.blip(A.voices.tap); vibrate(10);
+          resolve();
+        }, { once: true });
+      });
+    }
+
+    // ---------- 打卡纸：30 个孔，打过卡的那天打穿 ----------
+    let dotEls = [], captionEl = null, countEl = null;
     function showCaption() {
       const box = U.el('div', 's6-caption', layer);
+      captionEl = box;
       U.el('div', 's6-cap-main', box, T.caption[0]);
       U.el('div', 's6-cap-main', box, T.caption[1]);
       const dots = U.el('div', 's6-dots', box);
       for (let i = 0; i < BD.target; i++) dotEls.push(U.el('span', 's6-dot', dots));
-      self._smallEl = U.el('div', 's6-cap-small', box, T.small.replace('{n}', 0).replace('{t}', BD.target));
+      countEl = U.el('div', 's6-cap-small', box, T.small.replace('{n}', 0).replace('{t}', BD.target));
       requestAnimationFrame(() => box.classList.add('on'));
     }
     function updateDots(n) {
       dotEls.forEach((d, i) => d.classList.toggle('on', i < n));
-      if (self._smallEl) self._smallEl.textContent = T.small.replace('{n}', n).replace('{t}', BD.target);
+      if (countEl) countEl.textContent = T.small.replace('{n}', n).replace('{t}', BD.target);
     }
 
     // =========================================================
     // 总时间线
     // =========================================================
-    function onResize() { layout(); dieY = Math.min(H * 0.8, H - 140); if (!thrown) dieXform(1, 0, 0); }
+    function onResize() { layout(); dieY = Math.min(H * 0.74, H - 170); if (!thrown) dieXform(1, 0, 0); }
     layout();
     seedBackground();
-    dieY = Math.min(H * 0.8, H - 140);
+    dieY = Math.min(H * 0.74, H - 170);
     dieXform(0.01, 0, 0);
     window.addEventListener('resize', onResize);
     raf = requestAnimationFrame(frame);
 
     // 供调试脚本使用
-    if (U.param('debug') !== null) window.__s6 = { cam, plane, sheet, ops, pieces: () => pieces, tiles, fl, parts, path };
+    if (U.param('debug') !== null) window.__s6 = { cam, plane, sheet, ops, pieces: () => pieces, tiles, fl, parts, path, notes, input };
 
     (async () => {
       App.companion.show({ corner: 'tl' });
@@ -1070,12 +1388,12 @@ App.director.register('scene6', {
       await tween(380, (e) => dieXform(e, 0, 0), U.ease.outBack);
       if (!ctx.alive()) return;
       die.classList.add('idle');
-      const hint = U.el('div', 'soft-hint sea', layer, T.hint);
-      requestAnimationFrame(() => hint.classList.add('on'));
+      dieReady = true;
+      setHint(TX.dieHint);
 
       await thrownP;
       if (!ctx.alive()) return;
-      hint.classList.remove('on');
+      setHint(null);
       die.classList.remove('idle');
       await throwDie();
       if (!ctx.alive()) return;
@@ -1088,9 +1406,12 @@ App.director.register('scene6', {
       if (!ctx.alive()) return;
       showCaption();
       await U.sleep(500);
+      if (!ctx.alive()) return;
       await lightChecks();
       if (!ctx.alive()) return;
-      await U.sleep(5600);
+      await U.sleep(500);
+      if (!ctx.alive()) return;
+      await explore();
       if (!ctx.alive()) return;
       ctx.next();
     })();
@@ -1098,8 +1419,15 @@ App.director.register('scene6', {
     self._cleanup = function () {
       running = false;
       cancelAnimationFrame(raf);
+      stopCharge();
+      input.fold = null;
       window.removeEventListener('resize', onResize);
-      if (self._bobTimer) { clearInterval(self._bobTimer); self._bobTimer = null; }
+      ov.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      layer.remove();
+      canvas.remove();
       try { delete window.__s6; } catch (e) { /* 忽略 */ }
     };
   },

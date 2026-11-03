@@ -36,7 +36,7 @@ App.director.register('scene8', {
       const url = CFG.SCRATCH_IMG_URL;
       if (url) {
         const img = U.el('img', 's8-prize-img', host);
-        img.alt = '';
+        img.alt = 'https://txyintdev.tofaka.com/autoupload/amqnh/20261103/XSzq/2048X2048/hu.jpg/webp';
         img.draggable = false;
         img.decoding = 'async';
         img.addEventListener('error', () => {
