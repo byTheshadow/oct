@@ -26,7 +26,7 @@ App.config = {
 
   // ---------- 章节顺序 ----------
   // 'todo' 是施工中的占位章节，之后每一步把新场景插到它前面
-  flow: ['prologue', 'scene1', 'scene2', 'scene2_5', 'scene3', 'scene4', 'scene5', 'todo'],
+  flow: ['prologue', 'scene1', 'scene2', 'scene2_5', 'scene3', 'scene4', 'scene5', 'scene6', 'todo'],
 
   // 每章的饱和度（0 = 黑白，1 = 全彩）、BGM 清晰度（0 = 隔墙闷音，1 = 完全清晰）、背景色
   chapters: {
@@ -39,6 +39,7 @@ App.config = {
     scene3:   { saturation: 0.4,  clarity: 0.38, bg: '#070912', stage: false },
     scene4:   { saturation: 0.45, clarity: 0.44, bg: '#070912', stage: false },
     scene5:   { saturation: 0.6,  clarity: 0.56, bg: '#150d12', stage: false },
+    scene6:   { saturation: 0.75, clarity: 0.62, bg: '#120a1c', stage: false },
     todo:     { saturation: 0.32, clarity: 0.3,  bg: '#08080b' }
   },
 
@@ -93,6 +94,14 @@ App.config = {
 
     // Scene 5 暖色光斑背景
     warm: { bg: '#150d12', glows: ['#ff9a6c', '#ffcf7a', '#ff7fa8', '#ffb38a', '#c77dff', '#ffe4a8'] },
+    // Scene 6 飞行棋：比 Scene 5 更饱和一点
+    board: {
+      bg: '#120a1c',
+      glows: ['#ff8a5c', '#ffcf5a', '#ff5fa0', '#5ad8ff', '#b36bff', '#7affc0'],
+      sky: ['#1a1030', '#3b1f55', '#7b3a6e', '#d9707f', '#ffb98a'],          // 暮色天空，自上而下
+      tiles: ['#ff9bb3', '#ffc48a', '#ffe08a', '#b6f0b0', '#8fe0f0', '#b9a6ff'], // 点亮后的格子颜色（循环）
+      tileBase: '#fff3ea'                                                     // 没亮时的纸色
+    },
   },
 
   names: {
@@ -222,6 +231,22 @@ scene4: {
         { m: 10, d: 26, pages: [{ text: '大日子：猫猫变成了兔子。', icon: 'bunny' }] },
         { m: 10, d: 28, pages: [{ text: '你给我颁发了「面点大师」称号。', icon: 'dough' }] }
       ]
+    },
+
+    // Scene 6 · 飞行棋。棋盘 = first 起连续 days 格（默认 10月1日 起 33 格 = 到 11月2日）；
+    // checkFrom–checkTo 之间的格子会依次亮起（默认 10月8日–10月28日 = 21 天）；target 是目标天数
+    scene6: {
+      intro: '……接下来，要靠骰子啦。',
+      hint: '（点一下骰子）',
+      nag: '别点了，结果是注定的。',
+      caption: ['我们还一起完成了接近一个月的每日更新打卡——', '期待完成的那一天。'],
+      small: '已打卡 {n} 天 · 目标 {t} 天',
+      board: {
+        cols: 6,
+        first: { m: 10, d: 1 }, days: 33,
+        checkFrom: { m: 10, d: 8 }, checkTo: { m: 10, d: 28 },
+        target: 30
+      }
     },
 
     todo: {

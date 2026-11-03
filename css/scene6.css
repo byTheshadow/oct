@@ -1,0 +1,75 @@
+/* ========== Scene 6：飞行棋（js/scenes/scene6.js） ========== */
+.s6-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+.s6-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* 中央的大骰子 */
+.s6-die {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 132px;
+  height: 132px;
+  padding: 0;
+  border: 0;
+  background: none;
+  transform: translate(-50%, -50%) scale(0.01);
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  filter: drop-shadow(0 0 14px rgba(255, 120, 190, 0.55));
+  will-change: transform;
+}
+.s6-die canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+.s6-die:focus { outline: none; }
+.s6-die.idle { animation: s6-die-idle 1.8s ease-in-out infinite; }
+@keyframes s6-die-idle {
+  0%, 100% { filter: drop-shadow(0 0 10px rgba(255, 120, 190, 0.45)); }
+  50% { filter: drop-shadow(0 0 22px rgba(255, 150, 210, 0.9)); }
+}
+
+/* 落地后的那句话：底部毛玻璃卡片 */
+.s6-caption {
+  position: absolute;
+  left: 50%;
+  bottom: max(22px, env(safe-area-inset-bottom));
+  width: min(340px, calc(100% - 32px));
+  padding: 14px 16px 12px;
+  text-align: center;
+  border-radius: 20px;
+  background: rgba(36, 14, 52, 0.52);
+  border: 1px solid rgba(255, 210, 230, 0.28);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 30px rgba(20, 4, 40, 0.45);
+  transform: translate(-50%, 18px);
+  opacity: 0;
+  transition: opacity 1.2s ease, transform 1.2s ease;
+}
+.s6-caption.on { opacity: 1; transform: translate(-50%, 0); }
+.s6-cap-main { font-size: 14px; line-height: 1.75; letter-spacing: 0.06em; color: var(--ink); }
+.s6-cap-main:first-child { font-weight: 700; }
+.s6-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-top: 10px; }
+.s6-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  transition: background 0.25s, box-shadow 0.25s, transform 0.25s;
+}
+.s6-dot.on { background: #ffcf7a; box-shadow: 0 0 6px rgba(255, 207, 122, 0.9); transform: scale(1.15); }
+.s6-cap-small { margin-top: 9px; font-size: 12px; letter-spacing: 0.22em; color: #ffcf7a; }

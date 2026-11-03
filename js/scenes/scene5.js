@@ -447,41 +447,152 @@ App.director.register('scene5', {
       return new Promise((resolve) => {
         const wrap = U.el('div', 's5-staff-wrap', layer);
         const staff = U.el('div', 's5-staff', wrap);
-        const top0 = 46, gap = 22, stepX = 86;
+        const top0 = 78, gap = 26, stepX = 96;
         for (let i = 0; i < 5; i++) {
           const line = U.el('div', 's5-staff-line', staff);
           line.style.top = (top0 + i * gap) + 'px';
         }
-        const totalW = Math.max(W, stepX * (slots.length + 1) + 60);
+        const n = slots.length;
+        const pad = Math.max(W / 2 - 10, 120);
+        const totalW = pad * 2 + stepX * Math.max(0, n - 1);
         staff.style.width = totalW + 'px';
 
+        // 背景里慢慢飘起的小音符，填满空旷的上下空间
+        const drift = U.el('div', 's5-drift-box', layer);
+        const driftGl = ['♪', '♫', '♩', '✦', '✧'];
+        const driftTimer = setInterval(() => {
+          if (!ctx.alive()) return;
+          const sp = U.el('span', 's5-drift', drift, U.pick(driftGl));
+          sp.style.left = (6 + Math.random() * 88) + '%';
+          sp.style.top = (H * (0.3 + Math.random() * 0.5)) + 'px';
+          sp.style.color = U.pick(GLOW_COLORS);
+          sp.style.fontSize = (10 + Math.random() * 12) + 'px';
+          sp.style.animationDuration = (4.5 + Math.random() * 3) + 's';
+          setTimeout(() => sp.remove(), 8000);
+        }, 650);
+        self._staffCleanup = () => clearInterval(driftTimer);
+
+        // 音符位置
+        const pos = slots.map((s, i) => {
+          const level = (s.m * 31 + s.d) % 9;
+          return { x: pad + stepX * i, y: top0 + gap * 4 - level * (gap / 2), level };
+        });
+
+        // 旋律丝带：音符之间的发光曲线，读过的两端会点亮
+        const NS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(NS, 'svg');
+        svg.setAttribute('class', 's5-ribbon');
+        svg.setAttribute('width', totalW);
+        svg.setAttribute('height', 300);
+        staff.appendChild(svg);
+        const segs = [];
+        for (let i = 0; i < n - 1; i++) {
+          const p0 = pos[i], p1 = pos[i + 1], xm = (p0.x + p1.x) / 2;
+          const path = document.createElementNS(NS, 'path');
+          path.setAttribute('d', `M${p0.x} ${p0.y} C${xm} ${p0.y} ${xm} ${p1.y} ${p1.x} ${p1.y}`);
+          path.setAttribute('pathLength', '1');
+          path.setAttribute('class', 's5-seg');
+          path.style.transitionDelay = (0.5 + i * 0.12) + 's';
+          svg.appendChild(path);
+          segs.push(path);
+        }
+        function refreshSegs() {
+          segs.forEach((sg, i) => sg.classList.toggle('lit', allPagesRead(slots[i]) && allPagesRead(slots[i + 1])));
+        }
+
         let readerOpen = false;
+        const els = [];
 
         slots.forEach((s, i) => {
-          const x = stepX * (i + 1);
-          const level = (s.m * 31 + s.d) % 9;
-          const y = top0 + gap * 4 - level * (gap / 2);
           const color = GLOW_COLORS[i % GLOW_COLORS.length];
           const el = U.el('div', 's5-note' + (s.pages.length > 1 ? ' chord' : ''), staff);
-          el.style.left = x + 'px';
-          el.style.top = y + 'px';
+          el.style.left = pos[i].x + 'px';
+          el.style.top = pos[i].y + 'px';
           el.style.setProperty('--nc', color);
-          U.el('div', 's5-note-glyph', el, '♪');
+          el.style.setProperty('--d', (i * 0.09 + 0.3) + 's');
+          el.style.setProperty('--ph', (i * 0.7) + 's');
+          const orb = U.el('div', 's5-orb', el);
+          U.el('div', 's5-note-glyph', orb, '♪');
+          if (s.pages.length > 1) U.el('div', 's5-badge', el, '×' + s.pages.length);
+          U.el('div', 's5-check', el, '✓');
+          U.el('div', 's5-note-date', el, `${s.m}.${s.d}`);
           el.addEventListener('click', () => {
             if (!readerOpen) openReader(s, el, color);
           });
+          els.push(el);
         });
 
-        const progress = U.el('div', 's5-progress', layer, `0/${slots.length}`);
+        // 滚动：靠近中心的音符放大，经过中心时像八音盒一样轻响
+        let lastC = 0, lastScroll = 0, touched = false;
+        function onScroll() {
+          const cx = wrap.scrollLeft + wrap.clientWidth / 2;
+          let near = -1, nd = 1e9;
+          pos.forEach((p, i) => {
+            const d = Math.abs(p.x - cx);
+            const f = Math.max(0, 1 - d / 120);
+            els[i].style.setProperty('--f', f.toFixed(3));
+            if (d < nd) { nd = d; near = i; }
+          });
+          if (near !== lastC && nd < 20) {
+            lastC = near;
+            const k = PENTA[pos[near].level];
+            A.blip({ freq: CFG.COIN_BASE_HZ * Math.pow(2, k / 12), type: 'sine', vol: 0.03, dur: 0.5, jitter: 0 });
+            const r = els[near].getBoundingClientRect(), cr = canvasRect();
+            spark(r.left + r.width / 2 - cr.left, r.top + r.height / 2 - cr.top, GLOW_COLORS[near % GLOW_COLORS.length]);
+          }
+          const ds = Math.abs(wrap.scrollLeft - lastScroll);
+          if (ds > 4) pushGlows(W / 2, H * 0.5, Math.min(0.2, ds / 120));
+          lastScroll = wrap.scrollLeft;
+        }
+        wrap.addEventListener('scroll', onScroll, { passive: true });
+        wrap.addEventListener('pointerdown', () => { touched = true; });
+
+        // 音符被点时：光环 + 迸出小音符
+        function noteBurst(el, color) {
+          const r = el.getBoundingClientRect(), lr = layer.getBoundingClientRect();
+          const cx = r.left + r.width / 2 - lr.left, cy = r.top + r.height / 2 - lr.top;
+          const ring = U.el('div', 's5-ring', layer);
+          ring.style.left = cx + 'px'; ring.style.top = cy + 'px'; ring.style.setProperty('--nc', color);
+          setTimeout(() => ring.remove(), 900);
+          const gl = ['♪', '♫', '✦', '♩', '✧', '♥'];
+          for (let k = 0; k < 10; k++) {
+            const a = (k / 10) * 6.28 + Math.random() * 0.5, d = 46 + Math.random() * 56;
+            const f = U.el('span', 's5-fly', layer, U.pick(gl));
+            f.style.left = cx + 'px'; f.style.top = cy + 'px';
+            f.style.setProperty('--dx', (Math.cos(a) * d).toFixed(0) + 'px');
+            f.style.setProperty('--dy', (Math.sin(a) * d - 30).toFixed(0) + 'px');
+            f.style.setProperty('--rot', ((Math.random() - 0.5) * 120).toFixed(0) + 'deg');
+            f.style.color = k % 3 === 0 ? '#fff4e0' : color;
+            setTimeout(() => f.remove(), 1400);
+          }
+        }
+
+        // 进度：一排小点，读完一个亮一个
+        const progress = U.el('div', 's5-progress', layer);
+        const pdots = slots.map(() => U.el('span', 's5-pdot', progress));
+        const ptxt = U.el('span', 's5-ptxt', progress, `0/${n}`);
         function updateProgress() {
           const done = slots.filter(allPagesRead).length;
-          progress.textContent = `${done}/${slots.length}`;
-          if (done >= slots.length) resolve();
+          pdots.forEach((d, i) => d.classList.toggle('on', allPagesRead(slots[i])));
+          ptxt.textContent = `${done}/${n}`;
+          refreshSegs();
+          if (done >= n) {
+            wrap.classList.add('all');
+            for (let k = 0; k < 7; k++) setTimeout(() => { if (ctx.alive()) A.coin(k * 2 % 11); }, k * 110);
+            setTimeout(resolve, 1500);
+          }
         }
         requestAnimationFrame(() => {
           wrap.classList.add('on');
           progress.classList.add('on');
+          staff.classList.add('go');
+          onScroll();
         });
+        setTimeout(() => {
+          if (!ctx.alive() || touched || wrap.scrollLeft > 0) return;
+          wrap.scrollTo({ left: stepX, behavior: 'smooth' });
+          setTimeout(() => { if (ctx.alive() && !touched) wrap.scrollTo({ left: 0, behavior: 'smooth' }); }, 1500);
+        }, 2200);
 
         const hint = U.el('div', 'soft-hint sea', layer, T.hint);
         requestAnimationFrame(() => hint.classList.add('on'));
@@ -528,6 +639,7 @@ App.director.register('scene5', {
           setTimeout(() => noteEl.classList.remove('pluck'), 420);
           const r = noteEl.getBoundingClientRect(), cr = canvasRect();
           spark(r.left + r.width / 2 - cr.left, r.top + r.height / 2 - cr.top, color);
+          noteBurst(noteEl, color);
 
           prevBtn.addEventListener('click', () => { if (page > 0) { page--; renderPage(); A.blip(A.voices.tap); } });
           nextBtn.addEventListener('click', () => { if (page < slot.pages.length - 1) { page++; renderPage(); A.blip(A.voices.tap); } });
@@ -603,6 +715,7 @@ App.director.register('scene5', {
   exit() {
     if (this._destroyBg) { this._destroyBg(); this._destroyBg = null; }
     if (this._destroyTouch) { this._destroyTouch(); this._destroyTouch = null; }
+    if (this._staffCleanup) { this._staffCleanup(); this._staffCleanup = null; }
     if (this._vvCleanup) { this._vvCleanup(); this._vvCleanup = null; }
     App.companion.reset();
     App.shards.hide();
