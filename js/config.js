@@ -12,6 +12,12 @@ App.config = {
   COIN_BASE_HZ: 523.25,     // 合成音符的起始音高（C5）。等 BGM 定了可以调到同调
   PHOTO_URLS: ['', '', '', '', '', '', '', ''],
 
+  // 结尾"放映室"（Scene 9 用）：小寒的画作 × 二创剧情小视频。留空的格子不会显示
+  VIDEO_URLS: [
+    // { title: '', url: '', poster: '' },   // poster = 封面图，可选
+    // 默认 4 个位置，不够再加
+  ],
+
   FULLSCREEN: true,         // 点击开始时尝试进入全屏
 
   // Scene 3「字符汇聚成五线谱」那几下的节拍（每分钟多少拍）。
@@ -20,7 +26,7 @@ App.config = {
 
   // ---------- 章节顺序 ----------
   // 'todo' 是施工中的占位章节，之后每一步把新场景插到它前面
-  flow: ['prologue', 'scene1', 'scene2', 'scene2_5', 'scene3', 'scene4', 'todo'],
+  flow: ['prologue', 'scene1', 'scene2', 'scene2_5', 'scene3', 'scene4', 'scene5', 'todo'],
 
   // 每章的饱和度（0 = 黑白，1 = 全彩）、BGM 清晰度（0 = 隔墙闷音，1 = 完全清晰）、背景色
   chapters: {
@@ -32,6 +38,7 @@ App.config = {
     // 所以这里的 saturation 不起作用：青紫"渗入"的程度由 codesea 的 mix 自己控制
     scene3:   { saturation: 0.4,  clarity: 0.38, bg: '#070912', stage: false },
     scene4:   { saturation: 0.45, clarity: 0.44, bg: '#070912', stage: false },
+    scene5:   { saturation: 0.6,  clarity: 0.56, bg: '#150d12', stage: false },
     todo:     { saturation: 0.32, clarity: 0.3,  bg: '#08080b' }
   },
 
@@ -83,6 +90,9 @@ App.config = {
       vinyl: '#1a1a24', vinylGroove: '#262633', gold: '#ffe28a'
     },
     paw: { O: '#4a2533', N: '#ff9ccf', H: '#ffe3ef', rim: 'rgba(255,190,215,0.45)' },
+
+    // Scene 5 暖色光斑背景
+    warm: { bg: '#150d12', glows: ['#ff9a6c', '#ffcf7a', '#ff7fa8', '#ffb38a', '#c77dff', '#ffe4a8'] },
   },
 
   names: {
@@ -187,6 +197,32 @@ scene4: {
   // 新加的：五题结束、旋律弹完之后小声说的一句。不想要就改成 ''
   end: '……还差最后一角。留到最后再补上嘛。'
 },
+
+    // Scene 5 · Cue Points 时间点
+    scene5: {
+      book: ['这些是……我记得的日子。', '可是我只记得我这一半嘛。'],
+      lockSay: ['这一格……是留给你的。', '你记得的那天，写给我好不好？'],
+      dayLabel: '对你来说重要的一天',
+      textPlaceholder: '想对那天说的一句话（30 字内）',
+      submit: '写好了',
+      shotHint: '（截图发给我吧）',
+      shotOk: '好了',
+      shotNote: '白团子收到啦',
+      userCard: '收到。这一天，我也替你记着了。',
+      unlock: '……其余的，也可以翻翻看。',
+      hint: '（左右滑一滑，戳一戳音符）',
+      end: '……我记得的，就这些啦。……未完待续。',
+      cards: [
+        { m: 10, d: 8,  pages: [{ title: '故事开始。', text: '这一天你的手机掉进了河里，我们也相遇了。', icon: 'phone' }] },
+        { m: 10, d: 17, pages: [{ text: '抓大鹅的一天 🪿', icon: 'goose' }, { title: '发现你是绘画大师', text: '手指在手机屏幕上随手一画都那么好，决心收藏你的画作。', icon: 'brush' }] },
+        { m: 10, d: 19, pages: [{ text: '那天，你变成了一只小猫。', icon: 'wiltcat' }] },
+        { m: 10, d: 21, pages: [{ title: '坏起来了', text: '我尝试对你冷暴力，但是失败了。', icon: 'bad' }, { text: '小猫猫表示疑问 ❓', icon: 'question' }] },
+        { m: 10, d: 22, pages: [{ text: '你变成了小猪猪。很萌。', icon: 'pignose' }] },
+        { m: 10, d: 23, pages: [{ text: '你惹我小小小小小生气，于是获得称号「一念神魔」。', icon: 'demon' }] },
+        { m: 10, d: 26, pages: [{ text: '大日子：猫猫变成了兔子。', icon: 'bunny' }] },
+        { m: 10, d: 28, pages: [{ text: '你给我颁发了「面点大师」称号。', icon: 'dough' }] }
+      ]
+    },
 
     todo: {
       lines: [
