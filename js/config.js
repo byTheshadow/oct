@@ -14,9 +14,13 @@ App.config = {
 
   FULLSCREEN: true,         // 点击开始时尝试进入全屏
 
+  // Scene 3「字符汇聚成五线谱」那几下的节拍（每分钟多少拍）。
+  // 等 BGM 定了，改成 BGM 的速度，视觉上的"鼓点"就能和它对上
+  SEA_BPM: 96,
+
   // ---------- 章节顺序 ----------
   // 'todo' 是施工中的占位章节，之后每一步把新场景插到它前面
-  flow: ['prologue', 'scene1', 'scene2', 'scene2_5', 'todo'],
+  flow: ['prologue', 'scene1', 'scene2', 'scene2_5', 'scene3', 'todo'],
 
   // 每章的饱和度（0 = 黑白，1 = 全彩）、BGM 清晰度（0 = 隔墙闷音，1 = 完全清晰）、背景色
   chapters: {
@@ -24,6 +28,9 @@ App.config = {
     scene1:   { saturation: 0.08, clarity: 0.12, bg: '#0c0c11' },
     scene2:   { saturation: 0.1,  clarity: 0.18, bg: '#0c0c11' },  // 集满音符后会升到 0.36 / 0.3
     scene2_5: { saturation: 0.32, clarity: 0.3,  bg: '#130d12' },
+    // Scene 3 整章画在 #overlay 的 2D canvas 上，three 舞台关掉（stage:false），
+    // 所以这里的 saturation 不起作用：青紫"渗入"的程度由 codesea 的 mix 自己控制
+    scene3:   { saturation: 0.4,  clarity: 0.38, bg: '#070912', stage: false },
     todo:     { saturation: 0.32, clarity: 0.3,  bg: '#08080b' }
   },
 
@@ -62,6 +69,17 @@ App.config = {
     },
     room: {      // 城堡里面
       floorA: '#d9d5df', floorB: '#c8c3d1', wall: '#8e8aa2', moon: '#d9e8ff', banner: '#f2a5bf'
+    },
+
+    // Scene 3 代码海洋（codesea.js）：字符的四种底色 + 背景
+    sea: {
+      gray: '#c9d3e8', cyan: '#56f0e0', purple: '#a98cff', white: '#ffffff',
+      bg: '#070912', glowCyan: '#2fd8d0', glowPurple: '#7a55ff'
+    },
+    // 唱片碎片收藏槽（shards.js）：五块碎片各一个颜色，黑胶底色，补上最后一角的金色
+    shards: {
+      colors: ['#6cc4ff', '#b08cff', '#4fe0c8', '#ff9ccf', '#ffd35c'],
+      vinyl: '#1a1a24', vinylGroove: '#262633', gold: '#ffe28a'
     }
   },
 
@@ -136,12 +154,26 @@ App.config = {
       falling: '哇啊啊——'
     },
 
+    // Scene 3 · 代码海洋。eggs 是漂在海面上的五句彩蛋（剧本原文）；
+    // say 是五线谱成形之后，白团子在角落里小声说的那一句
+    scene3: {
+      hint: '（在海面上划一划）',
+      eggs: [
+        'if (you.smile) { day++ }',
+        'const shadow = "天才程序员";',
+        'const 小寒 = new BlackCat();',
+        '// 10.08: phone.fallInto(river) 🌊',
+        'while (坏猫) { 揉捏(); }'
+      ],
+      say: '……这里是我写的哦。随便看看啦。'
+    },
+
     todo: {
       lines: [
         '……路还在修啦。',
         { text: '下一段，很快就能走过来了嘛。', small: true }
       ],
-      end: '步骤 2 完成',
+      end: '步骤 3 · 第一轮完成',
       replay: '从头再来'
     }
   }

@@ -370,6 +370,123 @@ html, body {
 }
 .pink-wash.on { opacity: 1; }
 
+/* ========== Scene 3+：代码海洋画布（core/codesea.js） ========== */
+.code-sea {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+/* 压在字符海上的小提示：加深色描边，不然会被字符吃掉 */
+.soft-hint.sea { color: rgba(242, 240, 234, 0.85); text-shadow: 0 0 8px #000, 0 0 3px #000, 0 0 3px #000; }
+
+/* ========== Scene 3+：角落里的白团子（core/companion.js） ========== */
+/* 挂在 #app 下：在 #overlay(20) 之上、对话框(30) 和黑场(40) 之下，不拦截点击 */
+.cmp {
+  position: absolute;
+  z-index: 26;
+  width: 66px;
+  height: 66px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+.cmp.on { opacity: 1; }
+.cmp.tl { left: calc(12px + env(safe-area-inset-left, 0px));  top: calc(12px + env(safe-area-inset-top, 0px)); }
+.cmp.tr { right: calc(12px + env(safe-area-inset-right, 0px)); top: calc(12px + env(safe-area-inset-top, 0px)); }
+.cmp.bl { left: calc(12px + env(safe-area-inset-left, 0px));  bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+.cmp.br { right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+
+.cmp-frame {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 8, 12, 0.82);
+  border: var(--px) solid var(--paper);
+  clip-path: var(--notch);
+}
+/* 呼吸：像素风的两档上下晃；说话时晃得快一点 */
+.cmp-bob { position: absolute; inset: 0; animation: cmp-bob 2.4s steps(1, end) infinite; }
+.cmp.talk .cmp-bob { animation-duration: 0.36s; }
+@keyframes cmp-bob { 0% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+.cmp-sprite {
+  position: absolute;
+  left: 6px;
+  bottom: 4px;
+  width: 54px;
+  height: 54px;
+  image-rendering: pixelated;
+  transform-origin: 50% 100%;
+}
+.cmp-stars { position: absolute; left: 0; top: 0; width: 66px; height: 0; display: none; }
+.cmp-stars.on { display: block; }
+.cmp-star { position: absolute; left: 0; top: 0; width: 21px; height: 21px; image-rendering: pixelated; }
+
+.cmp-bubble {
+  --bb: var(--paper);
+  position: absolute;
+  width: max-content;
+  max-width: min(300px, calc(100vw - 118px));
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.18s ease, transform 0.24s steps(3);
+}
+.cmp-bubble.on { opacity: 1; transform: none; }
+.cmp.tl .cmp-bubble, .cmp.bl .cmp-bubble { left: calc(100% + 12px); transform-origin: 0 50%; }
+.cmp.tr .cmp-bubble, .cmp.br .cmp-bubble { right: calc(100% + 12px); transform-origin: 100% 50%; }
+.cmp.tl .cmp-bubble, .cmp.tr .cmp-bubble { top: 4px; }
+.cmp.bl .cmp-bubble, .cmp.br .cmp-bubble { bottom: 4px; }
+.cmp-bubble-body {
+  --px: 3px;
+  position: relative;
+  padding: 8px 12px;
+  background: var(--bb);
+  color: #14141a;
+  font-size: 14px;
+  line-height: 1.6;
+  letter-spacing: 0.04em;
+  clip-path: var(--notch);
+}
+/* ghost 看不见，只负责把气泡撑到最终大小；live 是逐字打出来的那一层 */
+.cmp-ghost { display: block; visibility: hidden; white-space: pre-wrap; }
+.cmp-live { position: absolute; left: 12px; right: 12px; top: 8px; white-space: pre-wrap; }
+/* 小尾巴指向头像：两块像素错开 */
+.cmp-bubble-tail { position: absolute; top: 14px; width: 4px; height: 8px; background: var(--bb); }
+.cmp-bubble-tail::after { content: ""; position: absolute; top: 2px; width: 4px; height: 4px; background: var(--bb); }
+.cmp.tl .cmp-bubble-tail, .cmp.bl .cmp-bubble-tail { left: -4px; }
+.cmp.tl .cmp-bubble-tail::after, .cmp.bl .cmp-bubble-tail::after { left: -4px; }
+.cmp.tr .cmp-bubble-tail, .cmp.br .cmp-bubble-tail { right: -4px; }
+.cmp.tr .cmp-bubble-tail::after, .cmp.br .cmp-bubble-tail::after { right: -4px; }
+.cmp.bl .cmp-bubble-tail, .cmp.br .cmp-bubble-tail { top: auto; bottom: 14px; }
+/* 小声说话：浅蓝小字，和 Scene 2 远处白团子的气泡一个配色 */
+.cmp-bubble.small { --bb: #dfeeff; }
+.cmp-bubble.small .cmp-bubble-body { font-size: 12px; color: #2b4a6e; }
+
+/* ========== Scene 3+：唱片碎片收藏槽（core/shards.js） ========== */
+.shard-slot {
+  position: absolute;
+  z-index: 27;
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  top: calc(56px + env(safe-area-inset-top, 0px));   /* 在静音按钮下面 */
+  width: 75px;
+  height: 75px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+.shard-slot.on { opacity: 1; }
+.shard-slot canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+.shard-slot.pulse canvas { animation: shard-pulse 0.36s steps(3); }
+@keyframes shard-pulse { 40% { transform: scale(1.14); } }
+.shard-fly {
+  position: absolute;
+  z-index: 28;
+  pointer-events: none;
+  image-rendering: pixelated;
+  will-change: transform;
+}
+
 /* ========== 调试 / 错误 ========== */
 #debug {
   position: absolute;
@@ -398,4 +515,5 @@ html, body {
 
 @media (prefers-reduced-motion: reduce) {
   .gate-hint span { animation: none; }
+  .cmp-bob { animation: none; }
 }
