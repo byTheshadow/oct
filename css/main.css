@@ -254,6 +254,100 @@ html, body {
 .px-btn:active { background: var(--ink); color: #000; }
 .px-btn:focus-visible { outline: 2px dashed var(--bt-blue); outline-offset: 4px; }
 
+/* ========== Scene 2：远处的白团子（小声） ========== */
+.bubble.far .bubble-body {
+  font-size: 12px;
+  padding: 5px 10px;
+  color: #2b4a6e;
+  background: #dfeeff;
+}
+.bubble.far .bubble-tail,
+.bubble.far .bubble-tail::after { background: #dfeeff; }
+.bubble.far.on .bubble-box { opacity: 0.88; }
+
+/* ========== Scene 2：蓄力条 ========== */
+.charge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.charge.on { opacity: 1; }
+.charge-box {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 12px;
+  height: 52px;
+  border: 3px solid var(--paper);
+  background: rgba(8, 8, 12, 0.6);
+}
+.charge-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0;
+  background: #f0c04e;
+}
+.charge-mark {
+  position: absolute;
+  left: -7px;
+  right: -7px;
+  height: 3px;
+  margin-bottom: -1px;
+  background: var(--bt-blue);
+  display: none;
+}
+.charge-mark.on { display: block; }
+
+/* ========== Scene 2：失误字幕 ========== */
+.caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  text-align: center;
+  font-size: 15px;
+  letter-spacing: 0.25em;
+  color: var(--ink);
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+.caption.on { opacity: 1; }
+
+/* ========== Scene 2：代码彩蛋 ========== */
+.code-egg { position: absolute; left: 0; top: 0; will-change: transform; }
+.code-egg span {
+  --px: 3px;
+  display: block;
+  transform: translate(-50%, -100%);
+  padding: 5px 10px;
+  font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace;
+  color: #ffe9a8;
+  background: rgba(8, 8, 12, 0.88);
+  white-space: nowrap;
+  clip-path: var(--notch);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.code-egg.on span { opacity: 1; }
+
+/* ========== Scene 2：集满音符，画面渗进一抹粉 ========== */
+.pink-wash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 45%, rgba(255, 160, 200, 0) 38%, rgba(255, 150, 195, 0.2) 100%);
+  opacity: 0;
+  transition: opacity 3s ease;
+  pointer-events: none;
+}
+.pink-wash.on { opacity: 1; }
+
 /* ========== 调试 / 错误 ========== */
 #debug {
   position: absolute;
