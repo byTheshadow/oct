@@ -3,6 +3,7 @@
  *   unlock()          首次点击时调用
  *   playBgm(fadeSec)  淡入播放
  *   setClarity(t,sec) 0 = 隔着墙，1 = 完全清晰
+ *   setMuted(bool) / toggleMute()  全局静音（BGM + 所有音效），状态存 localStorage
  *   blip / click / whoosh / coin(i) / meow
  * ========================================================= */
 App.audio = (function () {
@@ -11,6 +12,8 @@ App.audio = (function () {
   let bgmEl = null, lp = null, bgmGain = null, bgmStarted = false;
   let clarity = 0;
   let noiseBuf = null, coinBuf = null;
+  let muted = false;
+  try { muted = localStorage.getItem('oct.muted') === '1'; } catch (e) { /* 忽略 */ }
 
   const voices = {
     bt:  { freq: 640, type: 'triangle', vol: 0.045, dur: 0.05, jitter: 0.08 }, // 白团子："嘟嘟"
@@ -24,10 +27,24 @@ App.audio = (function () {
     if (!AC) return null;
     ctx = new AC();
     master = ctx.createGain();
-    master.gain.value = 1;
+    master.gain.value = muted ? 0 : 1;
     master.connect(ctx.destination);
     return ctx;
   }
+
+  /** 静音：master 是 BGM 和所有合成音效的共同出口，砍它一个就全静音 */
+  function setMuted(m) {
+    muted = !!m;
+    try { localStorage.setItem('oct.muted', muted ? '1' : '0'); } catch (e) { /* 忽略 */ }
+    if (master && ctx && ctx.state !== 'closed') {
+      const now = ctx.currentTime;
+      master.gain.cancelScheduledValues(now);
+      master.gain.setValueAtTime(master.gain.value, now);
+      master.gain.linearRampToValueAtTime(muted ? 0 : 1, now + 0.08);
+    }
+    return muted;
+  }
+  const toggleMute = () => setMuted(!muted);
 
   const ready = () => !!ctx && ctx.state === 'running';
 
@@ -96,7 +113,7 @@ App.audio = (function () {
 
   // 切到后台时暂停，回来继续
   document.addEventListener('visibilitychange', () => {
-    if (!ctx) return;
+    if (!ctx || ctx.state === 'closed') return;
     if (document.hidden) {
       if (bgmEl && bgmStarted) bgmEl.pause();
       ctx.suspend();
@@ -106,14 +123,29 @@ App.audio = (function () {
     }
   });
 
-  // 关闭/离开网页时强制停掉 BGM：手机浏览器有时不会可靠触发 visibilitychange，
-  // 导致标签页已经关了，音频会话还在后台继续放（而且会一直 loop）
+  // 关闭/离开网页时强制停掉 BGM。
+  // 上一版用 ctx.suspend()（异步 Promise）+ 渐变，标签页关得比它们生效更快，声音就"卡"住了。
+  // 这一版每一步都是同步、立即生效的：先把音量直接砍到 0，再释放音频资源并销毁 AudioContext。
   function hardStop() {
-    try { if (bgmEl) { bgmEl.pause(); bgmEl.currentTime = 0; } } catch (e) { /* 忽略 */ }
-    try { if (ctx) ctx.suspend(); } catch (e) { /* 忽略 */ }
+    try {
+      if (bgmGain) { bgmGain.gain.cancelScheduledValues(0); bgmGain.gain.value = 0; }
+      if (master) { master.gain.cancelScheduledValues(0); master.gain.value = 0; }
+    } catch (e) { /* 忽略 */ }
+    try {
+      if (bgmEl) {
+        bgmEl.muted = true;
+        bgmEl.pause();
+        bgmEl.removeAttribute('src');
+        bgmEl.load();
+        bgmStarted = false;
+      }
+    } catch (e) { /* 忽略 */ }
+    try { if (ctx && ctx.state !== 'closed') ctx.close(); } catch (e) { /* 忽略 */ }
   }
-  window.addEventListener('pagehide', hardStop);
+  // pagehide 的 persisted=true 表示页面进了前进/后退缓存、之后可能被恢复，这时不能销毁
+  window.addEventListener('pagehide', (e) => { if (!e.persisted) hardStop(); });
   window.addEventListener('beforeunload', hardStop);
+  window.addEventListener('unload', hardStop);
 
   // ---------- 合成音效 ----------
   function env(g, t, attack, peak, decay) {
@@ -247,6 +279,8 @@ App.audio = (function () {
 
   return {
     voices, unlock, playBgm, setClarity, blip, click, whoosh, coin, meow,
+    setMuted, toggleMute,
+    get muted() { return muted; },
     get ctx() { return ctx; },
     get clarity() { return clarity; }
   };

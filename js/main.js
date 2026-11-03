@@ -37,9 +37,37 @@
     const ch = App.config.chapters[startId] || {};
     App.audio.setClarity(ch.clarity || 0, 0.01);
     App.audio.playBgm(5);
+    createMuteButton();
     await U.sleep(700);
     App.director.go(startId);
   });
+
+  // ---------- 右上角静音按钮（音频解锁之后才出现） ----------
+  const ICON_ON =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/>' +
+    '<path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  const ICON_OFF =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/>' +
+    '<path d="M16 9.5l5 5M21 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  function createMuteButton() {
+    const btn = document.createElement('button');
+    btn.id = 'mute-btn';
+    btn.type = 'button';
+    const paint = () => {
+      btn.innerHTML = App.audio.muted ? ICON_OFF : ICON_ON;
+      btn.setAttribute('aria-label', App.audio.muted ? '取消静音' : '静音');
+    };
+    paint();
+    // 用 click，且阻止冒泡，避免点按钮时触发舞台上的点击（跳跃蓄力、戳小猫等）
+    ['pointerdown', 'pointerup'].forEach((t) => btn.addEventListener(t, (e) => e.stopPropagation()));
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      App.audio.toggleMute();
+      paint();
+    });
+    document.getElementById('app').appendChild(btn);
+    requestAnimationFrame(() => btn.classList.add('on'));
+  }
 
   // ---------- 全屏 + 竖屏锁定 + 屏幕常亮 ----------
   let wakeLock = null;
