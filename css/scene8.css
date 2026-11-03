@@ -1,0 +1,205 @@
+/* ========== Scene 8：刮刮卡（js/scenes/scene8.js） ========== */
+.s8-layer {
+  --s8-gold: #ffd35c;
+  --s8-rose: #ff9ccf;
+  --s8-blue: #6cc4ff;
+  --s8-lilac: #b08cff;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- 四张悬浮卡 ---------- */
+.s8-cards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  width: min(420px, calc(100% - 32px));
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.8s ease, transform 0.8s cubic-bezier(.2,.8,.2,1);
+  pointer-events: none;
+}
+.s8-cards.on { opacity: 1; transform: none; pointer-events: auto; }
+
+.s8-card {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44%;
+  max-width: 168px;
+  aspect-ratio: 3 / 4;
+  perspective: 700px;
+  cursor: pointer;
+  animation: s8-float 3.6s ease-in-out infinite;
+  animation-delay: var(--d, 0s);
+  transition: transform 0.45s cubic-bezier(.2,.8,.2,1), z-index 0s;
+}
+@keyframes s8-float { 50% { translate: 0 -7px; } }
+
+.s8-card-flip {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.7s cubic-bezier(.3,.1,.25,1);
+}
+.s8-card.flipped { animation: none; pointer-events: none; }
+.s8-card.flipped .s8-card-flip { transform: rotateY(180deg); }
+.s8-card.flipped { opacity: 0.6; transform: scale(0.94); }
+
+.s8-card-face, .s8-card-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  --px: 3px;
+  clip-path: var(--notch);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.s8-card-face {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 211, 92, 0.22), transparent 62%),
+    linear-gradient(165deg, #2c1430, #190c1e 60%, #241029);
+  border: 2px solid rgba(255, 220, 160, 0.4);
+  box-shadow: 0 0 0 rgba(255, 211, 92, 0);
+  transition: box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.s8-card.picked .s8-card-face {
+  border-color: var(--s8-gold);
+  box-shadow: 0 0 20px rgba(255, 211, 92, 0.55), inset 0 0 14px rgba(255, 211, 92, 0.2);
+}
+.s8-card.active { transform: scale(1.1); z-index: 3; }
+.s8-card.active .s8-card-face {
+  border-color: var(--s8-gold);
+  box-shadow: 0 0 26px rgba(255, 211, 92, 0.6), inset 0 0 18px rgba(255, 211, 92, 0.22);
+}
+
+.s8-card-back {
+  transform: rotateY(180deg);
+  background: linear-gradient(165deg, #241229, #140a18 60%, #1d0e22);
+  border: 2px solid rgba(255, 255, 255, 0.14);
+}
+.s8-card-back-text {
+  padding: 0 14px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.6;
+  letter-spacing: 0.05em;
+  color: var(--ink-dim);
+}
+
+.s8-card-icon {
+  font-size: 40px;
+  line-height: 1;
+  filter: drop-shadow(0 0 10px rgba(255, 211, 92, 0.35));
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.s8-card.active .s8-card-icon { opacity: 0; transform: scale(0.6); }
+
+.s8-card-surface {
+  position: absolute;
+  inset: 10px;
+  opacity: 0;
+  transition: opacity 0.35s ease 0.08s;
+  pointer-events: none;
+}
+.s8-card.active .s8-card-surface { opacity: 1; pointer-events: auto; }
+
+.s8-card-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  padding: 6px;
+}
+.s8-prize-icon {
+  font-size: 34px;
+  line-height: 1;
+  color: var(--s8-rose);
+  text-shadow: 0 0 12px var(--s8-rose), 0 0 2px #fff;
+}
+.s8-prize-label {
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+.s8-prize-img {
+  display: block;
+  max-width: 100%;
+  max-height: 70%;
+  object-fit: contain;
+  image-rendering: auto;
+  border-radius: 2px;
+}
+.s8-prize-placeholder {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: var(--s8-lilac);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+}
+.s8-prize-caption {
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: 0.03em;
+  color: var(--ink-dim);
+}
+
+/* ---------- 刮刮层 ---------- */
+.s8-scratch {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+  transition: opacity 0.42s ease;
+}
+.s8-scratch.done { opacity: 0; pointer-events: none; }
+
+/* ---------- 迸溅粒子（命中就飞散的碎片）---------- */
+.s8-spark {
+  position: fixed;
+  z-index: 29;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--c, #ffd35c);
+  box-shadow: 0 0 6px var(--c, #ffd35c);
+  pointer-events: none;
+  animation: s8-spark-fx 0.85s cubic-bezier(.2,.7,.3,1) forwards;
+}
+@keyframes s8-spark-fx {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0.3); opacity: 0; }
+}
+
+@media (max-width: 360px) {
+  .s8-card { width: 46%; }
+  .s8-card-icon { font-size: 34px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s8-card, .s8-card-flip, .s8-spark { animation: none; transition-duration: 0.01s; }
+}

@@ -6,8 +6,11 @@ window.App = window.App || {};
 App.config = {
   // ---------- 资源占位 ----------
   // BGM 必须和网页同域（放进 audio/ 文件夹），否则"隔墙闷音"滤镜会让它没声音
-  BGM_URL: '',              // 例：'audio/orange-ocean.mp3'
-  BGM_VOLUME: 0.8,
+
+  BGM_VOLUME  VIDEO_URLS: [
+    // { title: '', url: '', poster: '' },   // poster = 封面图，可选
+    // 默认 4 个位置，不够再加
+  ],: 0.8,
   SFX_COIN_URL: '',         // 可选。不填就用代码合成的音符声
   COIN_BASE_HZ: 523.25,     // 合成音符的起始音高（C5）。等 BGM 定了可以调到同调
   // 8 张星光相框照片：外链地址 + 白团子口吻的小注释（caption 留空则不显示注释条）
@@ -28,6 +31,9 @@ App.config = {
     // 默认 4 个位置，不够再加
   ],
 
+  // Scene 8 刮刮卡第二份奖品：炫少画的对小寒的画。留空也能跑，占位图会顶上
+  SCRATCH_IMG_URL: '',
+
   FULLSCREEN: true,         // 点击开始时尝试进入全屏
 
   // Scene 3「字符汇聚成五线谱」那几下的节拍（每分钟多少拍）。
@@ -36,7 +42,7 @@ App.config = {
 
   // ---------- 章节顺序 ----------
   // 'todo' 是施工中的占位章节，之后每一步把新场景插到它前面
-  flow: ['prologue', 'scene1', 'scene2', 'scene2_5', 'scene3', 'scene4', 'scene5', 'scene6', 'scene7', 'todo'],
+  flow: ['prologue', 'scene1', 'scene2', 'scene2_5', 'scene3', 'scene4', 'scene5', 'scene6', 'scene7', 'scene8', 'scene9', 'todo'],
 
   // 每章的饱和度（0 = 黑白，1 = 全彩）、BGM 清晰度（0 = 隔墙闷音，1 = 完全清晰）、背景色
   chapters: {
@@ -51,6 +57,8 @@ App.config = {
     scene5:   { saturation: 0.6,  clarity: 0.56, bg: '#150d12', stage: false },
     scene6:   { saturation: 0.75, clarity: 0.62, bg: '#120a1c', stage: false },
     scene7:   { saturation: 0.9,  clarity: 0.78, bg: '#070a1c', stage: false },
+    scene8:   { saturation: 0.95, clarity: 0.86, bg: '#160c1a', stage: false },
+    scene9:   { saturation: 1,    clarity: 0.92, bg: '#05070f', stage: false },
     todo:     { saturation: 0.32, clarity: 0.3,  bg: '#08080b' }
   },
 
@@ -303,6 +311,29 @@ scene4: {
       ],
       noteFallback: '……这个，我先不说啦。',
       end: '……Y。是你的名字呀。'
+    },
+
+    // Scene 8 · 刮刮卡
+    scene8: {
+      intro: ['……我准备了一点东西。', { text: '只能刮开两张哦。', small: true }],
+      icons: ['☕', '🍱', '💻', '🥟'],
+      unchosenText: '这些下次也会兑现',
+      scratchHint: '划一划',
+      halfway: '……别划我啦，再一下就好。',
+      prize1: '希望多贴贴 x1',
+      prize2: '炫少画的，画的是你。',
+      end: '……好啦，最后一步啦。'
+    },
+
+    // Scene 9 · Outro
+    scene9: {
+      intro: '……就差最后一块了。',
+      record: ['唱片……补好了。', { text: '一直没舍得听的那一面，现在可以听了。', small: true }],
+      cats: '走，去看看那片海变成什么样子。',
+      end: '……未完待续。',
+      sideB: 'Side B —— 未完待续',
+      shot: '保存截图',
+      replay: '从头再来'
     },
 
     todo: {

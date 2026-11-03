@@ -1,8 +1,9 @@
 /* =========================================================
- * 音频：BGM（带"隔墙闷音"低通滤镜）+ WebAudio 合成音效
- *   unlock()          首次点击时调用
- *   playBgm(fadeSec)  淡入播放
- *   setClarity(t,sec) 0 = 隔着墙，1 = 完全清晰
+ * 音频：程序合成氛围 BGM + 文件 BGM（带"隔墙闷音"低通滤镜）+ WebAudio 合成音效
+ *   unlock()          首次点击时调用（同时启动合成 BGM）
+ *   playBgm(fadeSec)  文件 BGM 淡入播放
+ *   crossToRealBgm(fadeSec)  合成 BGM 淡出，文件 BGM 淡入（Scene 9 enter 调用一次）
+ *   setClarity(t,sec) 0 = 隔着墙，1 = 完全清晰（合成 BGM 和文件 BGM 都跟随）
  *   setMuted(bool) / toggleMute()  全局静音（BGM + 所有音效），状态存 localStorage
  *   blip / click / whoosh / coin(i) / meow
  * ========================================================= */
@@ -62,9 +63,17 @@ App.audio = (function () {
     try { await resumed; } catch (e) { /* 忽略 */ }
     setupBgm();
     loadCoin();
+    if (pendingCrossSec !== null) {
+      // 调试直跳 Scene 9 时，enter() 可能早于首次点击：这里补上过渡，不再起合成 BGM
+      const sec = pendingCrossSec;
+      pendingCrossSec = null;
+      crossToRealBgm(sec);
+    } else {
+      startSynth();
+    }
   }
 
-  // ---------- BGM ----------
+  // ---------- 文件 BGM ----------
   const freqFor = (t) => 320 * Math.pow(20000 / 320, t);
   const volFor = (t) => cfg.BGM_VOLUME * (0.55 + 0.45 * t);
 
@@ -103,15 +112,195 @@ App.audio = (function () {
 
   function setClarity(t, sec = 3) {
     clarity = t;
-    if (!ctx || !lp) return;
+    if (!ctx) return; // 解锁前只记下数值，startSynth / setupBgm 会按它初始化
     const now = ctx.currentTime;
-    lp.frequency.cancelScheduledValues(now);
-    lp.frequency.setValueAtTime(lp.frequency.value, now);
-    lp.frequency.exponentialRampToValueAtTime(freqFor(t), now + Math.max(0.01, sec));
-    if (bgmStarted) rampGain(volFor(t), sec);
+    if (lp) {
+      lp.frequency.cancelScheduledValues(now);
+      lp.frequency.setValueAtTime(lp.frequency.value, now);
+      lp.frequency.exponentialRampToValueAtTime(freqFor(t), now + Math.max(0.01, sec));
+      if (bgmStarted) rampGain(volFor(t), sec);
+    }
+    if (synthOn) {
+      synthLp.frequency.cancelScheduledValues(now);
+      synthLp.frequency.setValueAtTime(synthLp.frequency.value, now);
+      synthLp.frequency.exponentialRampToValueAtTime(synthFreqFor(t), now + Math.max(0.01, sec));
+      rampSynthGain(synthVolFor(t), sec);
+    }
+  }
+
+  // ---------- 合成 BGM（Scene 9 之前的氛围声）----------
+  // 四个和弦循环，每个和弦 4 个振荡器，靠长起音/长释音互相交叉淡化；
+  // 琶音随机留白，所以听起来不会机械重复。
+  // 没有卷积混响，空间感只用一个 DelayNode 反馈做。同时发声的振荡器约 8~11 个。
+  const SYNTH_VOL = 0.7;       // 比 coin(0.09) 这类音效低，垫在下面
+  const STEP_SEC = 1;          // 调度步长
+  const STEPS_PER_CHORD = 8;
+  const CHORD_ATTACK = 3.5;
+  const LOOKAHEAD = 1.5;       // 向前排程的秒数
+  const TICK_MS = 500;
+  // 相对根音的半音数。根音取自 COIN_BASE_HZ，金币音（同根大调五声）不会和它打架
+  const CHORDS = [
+    [0, 7, 14, 16],   // I add9
+    [-3, 4, 12, 16],  // vi
+    [-7, 0, 9, 14],   // IV add9
+    [-5, 2, 7, 14]    // V 空五度
+  ];
+
+  let synthOn = false, synthRetired = false;
+  let synthTimer = null, synthStep = 0, synthNextT = 0, synthRoot = 0;
+  let synthBus = null, synthLp = null, synthGain = null, synthEcho = null, synthLfo = null;
+  let pendingCrossSec = null;
+
+  const synthFreqFor = (t) => 420 * Math.pow(5200 / 420, t);
+  const synthVolFor = (t) => SYNTH_VOL * (0.6 + 0.4 * t);
+
+  function synthRootHz() {
+    let f = cfg.COIN_BASE_HZ > 0 ? cfg.COIN_BASE_HZ : 261.63;
+    while (f >= 262) f /= 2;
+    while (f < 131) f *= 2;
+    return f;
+  }
+
+  function rampSynthGain(target, sec) {
+    const now = ctx.currentTime;
+    synthGain.gain.cancelScheduledValues(now);
+    synthGain.gain.setValueAtTime(synthGain.gain.value, now);
+    synthGain.gain.linearRampToValueAtTime(target, now + Math.max(0.01, sec));
+  }
+
+  /** 排一个自带包络、到点自己结束的振荡器 */
+  function synthNote(dest, type, freq, detune, t, attack, hold, release, peak) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    o.detune.value = detune;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(peak, t + attack);
+    g.gain.setValueAtTime(peak, t + attack + hold);
+    g.gain.linearRampToValueAtTime(0, t + attack + hold + release);
+    o.connect(g); g.connect(dest);
+    o.onended = () => { o.disconnect(); g.disconnect(); };
+    o.start(t);
+    o.stop(t + attack + hold + release + 0.05);
+  }
+
+  const semiHz = (semi) => synthRoot * Math.pow(2, semi / 12);
+
+  function scheduleChord(tones, t) {
+    const chordSec = STEP_SEC * STEPS_PER_CHORD;
+    const hold = chordSec - CHORD_ATTACK;
+    tones.forEach((semi, i) => {
+      // 最高音用一点点锯齿波：它的泛音最受低通影响，clarity 变化主要靠它听出来
+      const sheen = i === tones.length - 1;
+      synthNote(
+        synthBus, sheen ? 'sawtooth' : 'triangle', semiHz(semi),
+        sheen ? 5 : (i - 1) * 3, t, CHORD_ATTACK, hold, CHORD_ATTACK, sheen ? 0.012 : 0.038
+      );
+    });
+  }
+
+  function scheduleArp(tones, t) {
+    const semi = tones[Math.floor(Math.random() * tones.length)];
+    const octave = Math.random() < 0.3 ? 24 : 12;
+    const dest = Math.random() < 0.7 ? synthEcho : synthBus;
+    synthNote(dest, 'sine', semiHz(semi + octave), 0, t, 0.03, 0, 1.8, 0.03);
+  }
+
+  function scheduleStep(step, t) {
+    const inChord = step % STEPS_PER_CHORD;
+    const chord = Math.floor(step / STEPS_PER_CHORD) % CHORDS.length;
+    if (inChord === 0) scheduleChord(CHORDS[chord], t);
+    if (inChord >= 2 && Math.random() < 0.45) scheduleArp(CHORDS[chord], t + Math.random() * 0.12);
+  }
+
+  function synthTick() {
+    if (!synthOn || !ctx || ctx.state === 'closed') return;
+    const now = ctx.currentTime;
+    // 主线程卡顿后只对齐时钟，不补排错过的音，免得一次炸出一串
+    if (synthNextT < now) synthNextT = now + 0.05;
+    // ctx 暂停时 currentTime 不动，这里不会多排，切回来也不会叠声
+    while (synthNextT < now + LOOKAHEAD) {
+      scheduleStep(synthStep++, synthNextT);
+      synthNextT += STEP_SEC;
+    }
+  }
+
+  function startSynth() {
+    if (synthOn || synthRetired || !ctx || ctx.state === 'closed') return;
+    synthOn = true;
+    synthRoot = synthRootHz();
+
+    synthBus = ctx.createGain();
+    synthLp = ctx.createBiquadFilter();
+    synthLp.type = 'lowpass';
+    synthLp.Q.value = 0.5;
+    synthLp.frequency.value = synthFreqFor(clarity);
+    synthGain = ctx.createGain();
+    synthGain.gain.value = 0.0001;
+    synthBus.connect(synthLp);
+    synthLp.connect(synthGain);
+    synthGain.connect(master);
+
+    // 反馈延迟：琶音的"远处回声"
+    synthEcho = ctx.createGain();
+    const delay = ctx.createDelay(1);
+    delay.delayTime.value = 0.46;
+    const feedback = ctx.createGain();
+    feedback.gain.value = 0.38;
+    synthEcho.connect(synthBus);
+    synthEcho.connect(delay);
+    delay.connect(feedback);
+    feedback.connect(delay);
+    delay.connect(synthBus);
+
+    // 极慢的 LFO 推滤波器截止频率，让 pad 有"呼吸"
+    synthLfo = ctx.createOscillator();
+    const lfoDepth = ctx.createGain();
+    synthLfo.frequency.value = 0.07;
+    lfoDepth.gain.value = 180; // 音分
+    synthLfo.connect(lfoDepth);
+    lfoDepth.connect(synthLp.detune);
+    synthLfo.start();
+
+    rampSynthGain(synthVolFor(clarity), 4);
+    synthStep = 0;
+    synthNextT = ctx.currentTime + 0.05;
+    synthTick();
+    synthTimer = setInterval(synthTick, TICK_MS);
+  }
+
+  function stopSynthTimer() {
+    if (synthTimer !== null) clearInterval(synthTimer);
+    synthTimer = null;
+  }
+
+  function fadeOutSynth(sec) {
+    if (!synthOn) return;
+    synthOn = false;
+    stopSynthTimer();
+    rampSynthGain(0.0001, sec);
+    const out = synthGain, lfo = synthLfo;
+    setTimeout(() => {
+      try { lfo.stop(); out.disconnect(); } catch (e) { /* 忽略 */ }
+    }, (Math.max(0.01, sec) + 0.2) * 1000);
+  }
+
+  /**
+   * Scene 9：合成 BGM 淡出，文件 BGM 淡入。
+   * BGM_URL 还没填时什么都不做，合成 BGM 继续放，避免这一幕变成无声。
+   */
+  function crossToRealBgm(fadeSec = 2.5) {
+    if (synthRetired || !cfg.BGM_URL) return;
+    if (!ctx) { pendingCrossSec = fadeSec; return; }
+    setupBgm();
+    if (!bgmEl) return;
+    synthRetired = true;
+    playBgm(fadeSec);
+    fadeOutSynth(fadeSec);
   }
 
   // 切到后台时暂停，回来继续
+  // （合成 BGM 全部挂在 ctx 下，suspend/resume 自动带上；调度器看 currentTime，暂停期间不排新音）
   document.addEventListener('visibilitychange', () => {
     if (!ctx || ctx.state === 'closed') return;
     if (document.hidden) {
@@ -127,8 +316,11 @@ App.audio = (function () {
   // 上一版用 ctx.suspend()（异步 Promise）+ 渐变，标签页关得比它们生效更快，声音就"卡"住了。
   // 这一版每一步都是同步、立即生效的：先把音量直接砍到 0，再释放音频资源并销毁 AudioContext。
   function hardStop() {
+    synthOn = false;
+    stopSynthTimer();
     try {
       if (bgmGain) { bgmGain.gain.cancelScheduledValues(0); bgmGain.gain.value = 0; }
+      if (synthGain) { synthGain.gain.cancelScheduledValues(0); synthGain.gain.value = 0; }
       if (master) { master.gain.cancelScheduledValues(0); master.gain.value = 0; }
     } catch (e) { /* 忽略 */ }
     try {
@@ -278,7 +470,7 @@ App.audio = (function () {
   }
 
   return {
-    voices, unlock, playBgm, setClarity, blip, click, whoosh, coin, meow,
+    voices, unlock, playBgm, crossToRealBgm, setClarity, blip, click, whoosh, coin, meow,
     setMuted, toggleMute,
     get muted() { return muted; },
     get ctx() { return ctx; },
