@@ -20,7 +20,7 @@ App.config = {
 
   // ---------- 章节顺序 ----------
   // 'todo' 是施工中的占位章节，之后每一步把新场景插到它前面
-  flow: ['prologue', 'scene1', 'scene2', 'scene2_5', 'scene3', 'todo'],
+  flow: ['prologue', 'scene1', 'scene2', 'scene2_5', 'scene3', 'scene4', 'todo'],
 
   // 每章的饱和度（0 = 黑白，1 = 全彩）、BGM 清晰度（0 = 隔墙闷音，1 = 完全清晰）、背景色
   chapters: {
@@ -31,6 +31,7 @@ App.config = {
     // Scene 3 整章画在 #overlay 的 2D canvas 上，three 舞台关掉（stage:false），
     // 所以这里的 saturation 不起作用：青紫"渗入"的程度由 codesea 的 mix 自己控制
     scene3:   { saturation: 0.4,  clarity: 0.38, bg: '#070912', stage: false },
+    scene4:   { saturation: 0.45, clarity: 0.44, bg: '#070912', stage: false },
     todo:     { saturation: 0.32, clarity: 0.3,  bg: '#08080b' }
   },
 
@@ -80,7 +81,8 @@ App.config = {
     shards: {
       colors: ['#6cc4ff', '#b08cff', '#4fe0c8', '#ff9ccf', '#ffd35c'],
       vinyl: '#1a1a24', vinylGroove: '#262633', gold: '#ffe28a'
-    }
+    },
+    paw: { O: '#4a2533', N: '#ff9ccf', H: '#ffe3ef', rim: 'rgba(255,190,215,0.45)' },
   },
 
   names: {
@@ -167,6 +169,24 @@ App.config = {
       ],
       say: '……这里是我写的哦。随便看看啦。'
     },
+    // Scene 4 · 五线谱选择题。correct = 正确选项的下标；屏幕上的显示顺序每次都会打乱
+scene4: {
+  pieceIntro: ['第一块……', '第二块……', '第三块……', '第四块……', '第五块……'],
+  questions: [
+    { q: '你是什么小动物？', options: ['超级大坏猫', '软乎乎小奶猫', '一只快乐的小猪猪', '黑夜守护神'], correct: 0 },
+    { q: '我是什么小动物？', options: ['无敌大猛兽', '呆呆小笨熊', '憨憨大金毛', '稳重老乌龟'], correct: 0 },
+    { q: '哪天你的手机掉进了河里？', options: ['10月8日', '10月11日', '10月14日', '10月25日'], correct: 0 },
+    { q: '10月23日你惹我小小小小小生气，导致你收获了什么称号？', options: ['一念神魔', '一念成佛', '一念无明', '一念小猫'], correct: 0 },
+    { q: '10月26日是个大日子，因为你从猫猫变成了？', options: ['兔子', '小狐狸', '小熊猫', '小鸭子'], correct: 0 }
+  ],
+  correctSay: '对啦……',
+  secretEgg: '……不要告诉别人我是啦',     // 仅第 2 题答对时额外加说
+  hint: '（戳一下你的答案）',
+  // 答错时白团子的一句。第 1 句是剧本原文，第 2–5 句是新加的；不想要就改成 ''
+  wrongSay: ['啊……', '……扁、扁掉了。', '……拼、拼回来了嘛。', '……转、转晕了啦。', '……被揉捏了啦。'],
+  // 新加的：五题结束、旋律弹完之后小声说的一句。不想要就改成 ''
+  end: '……还差最后一角。留到最后再补上嘛。'
+},
 
     todo: {
       lines: [

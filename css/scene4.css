@@ -1,0 +1,162 @@
+/* ========== Scene 4：五线谱选择题（js/scenes/scene4.js） ========== */
+/* 整层叠在代码海洋 canvas 上；本身不拦截点击，只有选项气泡可以点 */
+.s4-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+.s4-layer.hidden { opacity: 0; }
+
+/* 题目卡片：压在五线谱正中，半透明底，谱线从两边露出来 */
+.s4-q {
+  position: absolute;
+  left: 50%;
+  width: min(440px, calc(100% - 40px));
+  text-align: center;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.94);
+  transition: opacity 0.35s ease, transform 0.3s steps(3);
+}
+.s4-q.on { opacity: 1; transform: translate(-50%, -50%); }
+.s4-q.out { opacity: 0; transition-duration: 0.25s; }
+.s4-q-body {
+  --px: 3px;
+  padding: 9px 16px 13px;
+  background: rgba(7, 9, 18, 0.74);
+  border: 3px solid var(--c);
+  clip-path: var(--notch);
+}
+.s4-q-tag {
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: var(--c);
+  margin-bottom: 4px;
+}
+.s4-q-text {
+  font-size: 17px;
+  line-height: 1.6;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+/* 四个音符气泡：2×2 */
+.s4-opts {
+  position: absolute;
+  left: 50%;
+  width: min(460px, calc(100% - 28px));
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.s4-opts.locked .s4-opt { pointer-events: none; }
+
+/* 外层只负责发光（clip-path 会把自己的阴影裁掉，所以光晕放在外层） */
+.s4-opt {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(8px) scale(0.9);
+  transition: opacity 0.25s ease, transform 0.28s steps(3), filter 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.s4-opt:focus { outline: none; }
+.s4-opt:focus-visible { outline: 2px dashed var(--bt-blue); outline-offset: 4px; }
+.s4-opt.on { opacity: 1; transform: none; }
+.s4-opt.dim { opacity: 0.32; }
+
+.s4-opt-body {
+  --px: 3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 54px;
+  padding: 8px 10px;
+  background: rgba(10, 12, 22, 0.86);
+  border: 3px solid rgba(242, 240, 234, 0.75);
+  clip-path: var(--notch);
+  font-size: 15px;
+  line-height: 1.35;
+  letter-spacing: 0.03em;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+.s4-opt:active .s4-opt-body { background: rgba(40, 44, 70, 0.92); }
+.s4-opt-note {
+  flex: none;
+  width: 18px;
+  height: 22px;
+  image-rendering: pixelated;
+}
+.s4-opt-text { min-width: 0; }
+
+/* 答对 / 揭晓：整颗气泡染成这块碎片的颜色 */
+.s4-opt.ok {
+  opacity: 1;
+  filter: drop-shadow(0 0 6px var(--c)) drop-shadow(0 0 16px var(--c));
+  animation: s4-pop 0.3s steps(3);
+}
+.s4-opt.ok .s4-opt-body { background: var(--c); border-color: #fff; color: #14141a; }
+@keyframes s4-pop { 50% { transform: scale(1.08); } }
+
+/* 答错：红边、抖一下 */
+.s4-opt.bad .s4-opt-body { border-color: #ff6b7d; color: #ffb3bd; }
+.s4-opt.bad { animation: s4-shake 0.36s steps(6); }
+@keyframes s4-shake {
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+.s4-opts.out .s4-opt { opacity: 0; transition-delay: 0s; }
+
+/* 惩罚特效用的整屏 canvas（裂纹、碎屏） */
+.s4-fx {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+.s4-fx.fade { opacity: 0; }
+
+/* 大猫爪印：挂在 #app 下，在白团子头像(26)下面，不跟着画面一起被揉 */
+.s4-paw {
+  position: absolute;
+  z-index: 25;
+  height: auto;
+  image-rendering: pixelated;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* 结尾那段旋律：五个音符依次亮在谱上 */
+.s4-mnote {
+  position: absolute;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--c);
+  text-shadow: 0 0 8px var(--c), 0 0 2px #fff;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.4);
+  transition: opacity 0.2s ease, transform 0.3s steps(3);
+  pointer-events: none;
+}
+.s4-mnote.on { opacity: 1; transform: translate(-50%, -50%); }
+.s4-mnote.out { opacity: 0; transform: translate(-50%, -160%); transition-duration: 1.2s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .s4-opt.bad, .s4-opt.ok { animation: none; }
+}
