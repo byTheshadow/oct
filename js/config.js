@@ -6,6 +6,7 @@ window.App = window.App || {};
 App.config = {
   // ---------- 资源占位 ----------
   // BGM 必须和网页同域（放进 audio/ 文件夹），否则"隔墙闷音"滤镜会让它没声音
+  BGM_URL: 'audio/OrangeOcean-Orange-Ocean.mp3',
 
    BGM_VOLUME: 0.8,
   SFX_COIN_URL: '',         // 可选。不填就用代码合成的音符声
@@ -327,6 +328,8 @@ scene4: {
       halfway: '……别划我啦，再一下就好。',
       prize1: '希望多贴贴 x1',
       prize2: '炫少画的，画的是你。',
+      missIcon: '○',
+      missLabel: '……空的，下次一定补给你。',
       end: '……好啦，最后一步啦。'
     },
 

@@ -49,6 +49,10 @@ App.director.register('scene8', {
       }
       if (T.prize2) U.el('div', 's8-prize-caption', host, T.prize2);
     }
+    function buildMiss(host) {
+      U.el('div', 's8-prize-icon', host, T.missIcon || '○');
+      U.el('div', 's8-prize-label', host, T.missLabel || '……空的，下次一定补给你。');
+    }
     const PRIZES = [buildPrizeSticker, buildPrizeDrawing];
 
     /* =========================================================
@@ -68,6 +72,13 @@ App.director.register('scene8', {
       U.el('div', 's8-card-back-text', back, T.unchosenText || '这些下次也会兑现');
       return { el, face, surface, content, idx: i, picked: false };
     });
+
+    // 真随机：4 张卡里先暗中定下哪 2 张是真奖品，玩家选的时候完全不知道，
+    // 选中的两张未必都踩中——这才是真的"刮刮乐"，不是选啥都稳赢
+    const winnerIdx = new Set();
+    while (winnerIdx.size < Math.min(2, cards.length)) {
+      winnerIdx.add(Math.floor(Math.random() * cards.length));
+    }
 
     let pickedCount = 0, phaseLocked = false, halfwaySaid = false, scratchedCount = 0;
 
@@ -95,10 +106,19 @@ App.director.register('scene8', {
     function startScratchPhase() {
       const chosen = cards.filter((c) => c.picked);
       const others = cards.filter((c) => !c.picked);
-      const order = Math.random() < 0.5 ? [0, 1] : [1, 0];
-      chosen.forEach((c, i) => {
+      // 两份固定奖品只分给真的落在"中奖位"上的那几张；
+      // 顺序（谁拿①谁拿②）还是随机的，但中不中奖本身不再是必然
+      const prizeOrder = Math.random() < 0.5 ? [0, 1] : [1, 0];
+      let pi = 0;
+      chosen.forEach((c) => {
         c.el.classList.add('active');
-        PRIZES[order[i]](c.content);
+        c.isWin = winnerIdx.has(c.idx);
+        if (c.isWin) {
+          PRIZES[prizeOrder[pi % PRIZES.length]](c.content);
+          pi++;
+        } else {
+          buildMiss(c.content);
+        }
         mountScratch(c);
       });
       others.forEach((c) => c.el.classList.add('flipped'));
@@ -224,9 +244,14 @@ App.director.register('scene8', {
         done = true;
         canvas.classList.add('done');
         setTimeout(() => canvas.remove(), 460);
-        A.coin(8);
-        burstAt(c.el);
-        App.companion.react(scratchedCount === 0 ? 'surprise' : 'happy');
+        if (c.isWin) {
+          A.coin(8);
+          burstAt(c.el);
+          App.companion.react(scratchedCount === 0 ? 'surprise' : 'happy');
+        } else {
+          A.click(0.12);
+          App.companion.react('nod');
+        }
         scratchedCount++;
         if (scratchedCount >= 2) {
           setTimeout(async () => {
