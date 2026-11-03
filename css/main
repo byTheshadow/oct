@@ -1,0 +1,285 @@
+/* ========== 基础 ========== */
+:root {
+  /* 第 7 步会换成裁剪后的中文像素字体 */
+  --font: "PingFang SC", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --ink: #f2f0ea;
+  --ink-dim: rgba(242, 240, 234, 0.55);
+  --paper: #f2f0ea;
+  --bt-blue: #6cc4ff;
+  --px: 4px;
+  /* 像素圆角：四个角各切掉一个像素 */
+  --notch: polygon(
+    0 var(--px), var(--px) var(--px), var(--px) 0,
+    calc(100% - var(--px)) 0, calc(100% - var(--px)) var(--px), 100% var(--px),
+    100% calc(100% - var(--px)), calc(100% - var(--px)) calc(100% - var(--px)), calc(100% - var(--px)) 100%,
+    var(--px) 100%, var(--px) calc(100% - var(--px)), 0 calc(100% - var(--px))
+  );
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  font-family: var(--font);
+  color: var(--ink);
+}
+
+/* ========== 图层 ========== */
+#stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0;
+  transition: filter 2.5s ease, opacity 1.2s ease;
+}
+#stage canvas { display: block; width: 100%; height: 100%; }
+
+#world-ui { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+#overlay  { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+#overlay.active { pointer-events: auto; }
+
+#fade {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.9s ease;
+}
+#fade.on { opacity: 1; }
+
+/* ========== 开场提示 ========== */
+.gate-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  text-align: center;
+  font-size: 14px;
+  letter-spacing: 0.35em;
+  color: var(--ink-dim);
+  opacity: 0;
+  transition: opacity 1.6s ease;
+}
+.gate-hint.on { opacity: 1; }
+.gate-hint.off { opacity: 0; transition-duration: 0.5s; }
+.gate-hint span { display: inline-block; animation: breathe 3.2s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: 0.4; } }
+
+/* ========== 白团子的两点蓝 ========== */
+.bt-eyes {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  display: flex;
+  gap: 28px;
+  transform: translate(calc(-50% + var(--lx, 0px)), var(--ly, 0px));
+  opacity: 0;
+  transition: opacity 1.8s ease;
+}
+.bt-eyes.on { opacity: 1; }
+.bt-eyes.dim { opacity: 0; transition-duration: 2.4s; }
+.bt-eye {
+  position: relative;
+  width: 10px;
+  height: 14px;
+  background: var(--bt-blue);
+  box-shadow: 0 0 10px 2px rgba(108, 196, 255, 0.6), 0 0 42px 12px rgba(108, 196, 255, 0.16);
+  transition: transform 0.07s steps(2);
+}
+.bt-eye::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 3px;
+  height: 3px;
+  background: #fff;
+}
+.bt-eyes.blink .bt-eye { transform: scaleY(0.12); }
+
+/* ========== 对话框 ========== */
+#dialog-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+#dialog-layer.on { opacity: 1; pointer-events: auto; }
+
+.dialog {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  max-width: 520px;
+  margin: 0 auto;
+  min-height: 120px;
+  padding: 14px 18px 26px;
+  background: rgba(8, 8, 12, 0.88);
+  border: var(--px) solid var(--paper);
+  clip-path: var(--notch);
+  transform: translateY(10px);
+  transition: transform 0.3s steps(3);
+}
+#dialog-layer.on .dialog { transform: none; }
+
+.dialog-name {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: var(--bt-blue);
+  margin-bottom: 6px;
+}
+.dialog-name:empty { display: none; }
+.dialog-text {
+  font-size: 17px;
+  line-height: 1.75;
+  letter-spacing: 0.05em;
+  min-height: 3.5em;
+  white-space: pre-wrap;
+}
+.dialog-text.small { font-size: 14px; color: var(--ink-dim); }
+.dialog-next {
+  position: absolute;
+  right: 14px;
+  bottom: 8px;
+  font-size: 11px;
+  opacity: 0;
+}
+.dialog-next.on { animation: blink-step 1s steps(1) infinite; }
+@keyframes blink-step { 0% { opacity: 1; } 50% { opacity: 0; } }
+
+/* ========== 跟随物体的思考气泡 ========== */
+.bubble { position: absolute; left: 0; top: 0; will-change: transform; }
+.bubble-box {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  transform: translate(-50%, 0) scale(0.6);
+  transform-origin: 50% 100%;
+  opacity: 0;
+  transition: opacity 0.18s ease, transform 0.24s steps(3);
+}
+.bubble.on .bubble-box { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.bubble-body {
+  --px: 3px;
+  min-width: 2.4em;
+  padding: 7px 12px;
+  background: var(--paper);
+  color: #14141a;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-align: center;
+  clip-path: var(--notch);
+}
+.bubble-tail {
+  position: relative;
+  width: 8px;
+  height: 4px;
+  margin: 0 auto;
+  background: var(--paper);
+}
+.bubble-tail::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 4px;
+  width: 4px;
+  height: 4px;
+  background: var(--paper);
+}
+
+/* ========== 小提示 ========== */
+.soft-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(44px + env(safe-area-inset-bottom, 0px));
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: var(--ink-dim);
+  opacity: 0;
+  transition: opacity 1s ease;
+  pointer-events: none;
+}
+.soft-hint.on { opacity: 1; }
+
+/* ========== 阶段结束卡 ========== */
+.end-card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.end-card.on { opacity: 1; }
+.end-title { font-size: 13px; letter-spacing: 0.3em; color: var(--ink-dim); }
+.px-btn {
+  --px: 3px;
+  font: inherit;
+  font-size: 14px;
+  letter-spacing: 0.2em;
+  color: var(--ink);
+  background: transparent;
+  border: 3px solid var(--ink);
+  padding: 10px 22px;
+  clip-path: var(--notch);
+  cursor: pointer;
+}
+.px-btn:active { background: var(--ink); color: #000; }
+.px-btn:focus-visible { outline: 2px dashed var(--bt-blue); outline-offset: 4px; }
+
+/* ========== 调试 / 错误 ========== */
+#debug {
+  position: absolute;
+  left: 8px;
+  top: calc(8px + env(safe-area-inset-top, 0px));
+  z-index: 50;
+  font: 11px/1.4 ui-monospace, monospace;
+  color: #7f7;
+  pointer-events: none;
+  white-space: pre;
+}
+#boot-error {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 14px;
+  line-height: 2;
+  color: var(--ink);
+  background: #000;
+}
+#boot-error[hidden] { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gate-hint span { animation: none; }
+}
