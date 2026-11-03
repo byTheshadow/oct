@@ -106,6 +106,15 @@ App.audio = (function () {
     }
   });
 
+  // 关闭/离开网页时强制停掉 BGM：手机浏览器有时不会可靠触发 visibilitychange，
+  // 导致标签页已经关了，音频会话还在后台继续放（而且会一直 loop）
+  function hardStop() {
+    try { if (bgmEl) { bgmEl.pause(); bgmEl.currentTime = 0; } } catch (e) { /* 忽略 */ }
+    try { if (ctx) ctx.suspend(); } catch (e) { /* 忽略 */ }
+  }
+  window.addEventListener('pagehide', hardStop);
+  window.addEventListener('beforeunload', hardStop);
+
   // ---------- 合成音效 ----------
   function env(g, t, attack, peak, decay) {
     g.gain.setValueAtTime(0.0001, t);

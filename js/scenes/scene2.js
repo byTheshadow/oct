@@ -21,6 +21,7 @@ App.director.register('scene2', {
 
     // ---------- 手感参数 ----------
     const CHARGE_MS = 1000;             // 蓄满要按多久
+    const MIN_HOLD = 0.08;              // 低于这个蓄力比例＝没按够，不跳（避免一点一下就自动跳出去）
     const MIN = 0.5, MAX = 3.6;         // 跳远距离（按一下 ~ 蓄满）
     const arcH = (d) => 0.85 + 0.12 * d; // 跳得越远抛得越高
     const BODY = 0.55;                  // 小猫身体中心离脚底的高度（吃音符用）
@@ -327,7 +328,7 @@ App.director.register('scene2', {
     };
     const onUp = (e) => {
       if (state !== 'charge' || e.pointerId !== pid) return;
-      if (e.type === 'pointercancel') { endCharge(); state = 'ready'; return; }
+      if (e.type === 'pointercancel' || charge() < MIN_HOLD) { endCharge(); state = 'ready'; return; }
       jump();
     };
     const onBlur = () => {

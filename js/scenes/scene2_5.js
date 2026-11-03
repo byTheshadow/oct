@@ -65,6 +65,10 @@ App.director.register('scene2_5', {
     const catB = App.bubble.create((o) => cat.headPos(o));
 
     const beast = new App.Critter(App.sprites.set('beast'), 2.4, { autoBlink: false, breathe: 0.015 }).addTo(outside);
+    // 猛兽贴在门口，身位很容易和城堡的立体网格撞进同一段深度，
+    // 导致精灵被当成"在墙后面"而被遮住；关掉深度测试、把它放到更高的渲染层，强制画在城堡前面
+    beast.mat.depthTest = false;
+    beast.sprite.renderOrder = 4;
     const beastSpot = P(-0.45);
     beast.setPosition(P(-0.45, 0, 8));
     beast.sprite.visible = false;
@@ -293,6 +297,7 @@ App.director.register('scene2_5', {
       if (!ctx.alive()) return;
       outside.visible = false;
       buildInside();
+      inside.visible = true;
       await U.sleep(80);
       fadeEl.classList.remove('on');
       await U.sleep(900);
