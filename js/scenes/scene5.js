@@ -39,6 +39,7 @@ App.director.register('scene5', {
       focusChord: T.focusChord || '{n} 段回忆，轻触翻开',
       focusMine: T.focusMine || '你的那一天，轻触翻开',
       focusRead: T.focusRead || '已经翻开过啦 ✓',
+      focusLeft: T.focusLeft || '还有 {n} 页没翻哦，再点开看看',
       swipeTip: T.swipeTip || '左右滑动翻页，点空白处合上',
       closeTip: T.closeTip || '点空白处合上'
     };
@@ -47,6 +48,8 @@ App.director.register('scene5', {
     ov.className = 'active';
     const canvas = U.el('canvas', 's5-canvas', ov);
     const layer = U.el('div', 's5-layer', ov);
+    // 离开本章时把自己的 DOM 带走，免得透明的五线谱层盖在下一幕上面挡住点击
+    disposers.push(() => { layer.remove(); canvas.remove(); });
 
     /* =========================================================
      * 背景画布
@@ -821,6 +824,7 @@ App.director.register('scene5', {
         let focusIdx = -1;
         function focusText(s) {
           if (allPagesRead(s)) return TX.focusRead;
+          if (s.readPages.size > 0) return TX.focusLeft.replace('{n}', s.pages.length - s.readPages.size);
           if (s.hasUser && s.pages.length === 1) return TX.focusMine;
           if (s.pages.length > 1) return TX.focusChord.replace('{n}', s.pages.length);
           return TX.focusTap;
@@ -923,6 +927,11 @@ App.director.register('scene5', {
 
         // 全部读完：整段旋律缩成一条星座，从左到右依次弹响 + 流星雨
         function grandFinale() {
+          // 保险：不管下面的动画出什么状况，最多 7 秒后一定往下走
+          later(resolve, 7000);
+          try { playFinale(); } catch (err) { console.error('[scene5] finale', err); resolve(); }
+        }
+        function playFinale() {
           wrap.classList.add('all');
           focus.classList.add('hide');
           const cw = wrap.clientWidth, sl = wrap.scrollLeft;
@@ -1053,6 +1062,9 @@ App.director.register('scene5', {
             prevBtn.disabled = page === 0;
             nextBtn.disabled = page === slot.pages.length - 1;
             slot.readPages.add(page);
+            const unreadAhead = slot.pages.some((_, i) => !slot.readPages.has(i));
+            nextBtn.classList.toggle('beckon', unreadAhead && !nextBtn.disabled);
+            prevBtn.classList.toggle('beckon', unreadAhead && !prevBtn.disabled && !slot.readPages.has(page - 1));
           }
           function goPage(np) {
             if (busy || closing) return;
@@ -1134,6 +1146,7 @@ App.director.register('scene5', {
             layer.classList.remove('reading');
             setTimeout(() => reader.remove(), 450);
             readerOpen = false;
+            noteEl.classList.toggle('partial', !allPagesRead(slot));
             if (allPagesRead(slot) && !noteEl.classList.contains('read')) {
               later(() => {
                 noteEl.classList.add('read', 'bloom');
@@ -1169,7 +1182,11 @@ App.director.register('scene5', {
     async function finale() {
       await U.sleep(400);
       if (!ctx.alive()) return;
-      if (T.end) await App.companion.say(T.end, { small: true, hold: 2400 });
+      if (!T.end) return;
+      try {
+        // 白团子那句话万一没有 resolve，8 秒后也照样往下走
+        await Promise.race([App.companion.say(T.end, { small: true, hold: 2400 }), U.sleep(8000)]);
+      } catch (err) { console.error('[scene5] end line', err); }
     }
 
     /* =========================================================
@@ -1198,14 +1215,23 @@ App.director.register('scene5', {
       await App.companion.say(T.unlock, { small: true, hold: 850 });
       if (!ctx.alive()) return;
 
-      const slots = buildSlots(userDay);
-      await raceAlive(showStaff(slots));
-      if (!ctx.alive()) return;
-
-      await finale();
-      if (!ctx.alive()) return;
-      ctx.next();
+      try {
+        const slots = buildSlots(userDay);
+        await raceAlive(showStaff(slots));
+        if (!ctx.alive()) return;
+        await finale();
+      } catch (err) {
+        console.error('[scene5]', err);
+      }
+      goNext();
     })();
+
+    let wentNext = false;
+    function goNext() {
+      if (wentNext || !ctx.alive()) return;
+      wentNext = true;
+      ctx.next();
+    }
   },
 
   exit() {

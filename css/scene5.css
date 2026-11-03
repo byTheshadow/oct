@@ -955,6 +955,18 @@
 .s5-reader-arrow.prev { left: 0; }
 .s5-reader-arrow.next { right: 0; }
 .s5-reader-arrow[disabled] { opacity: 0.15; pointer-events: none; }
+.s5-reader-arrow.beckon {
+  color: var(--nc, #ffcf7a);
+  text-shadow: 0 0 10px var(--nc, #ffcf7a);
+  animation: s5-beckon-r 1s ease-in-out infinite;
+}
+.s5-reader-arrow.prev.beckon { animation-name: s5-beckon-l; }
+@keyframes s5-beckon-r { 50% { translate: 5px 0; } }
+@keyframes s5-beckon-l { 50% { translate: -5px 0; } }
+
+/* 和弦音符只翻了一部分：右上角的 ×2 徽章一闪一闪，提醒还有没看的 */
+.s5-note.partial .s5-badge { animation: s5-badge-nag 1.2s ease-in-out infinite; }
+@keyframes s5-badge-nag { 50% { transform: scale(1.35); box-shadow: 0 0 14px var(--nc, #ffcf7a); } }
 .s5-reader-tip {
   position: relative;
   font-size: 11px;
