@@ -1,0 +1,319 @@
+/* ========== Scene 7：星空词云 + 照片 + 词频猜猜看（js/scenes/scene7.js） ========== */
+.s7-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+.s7-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* ---------- 7a：猜词题，3 颗悬浮发光星球按钮 ---------- */
+.s7-quiz {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(360px, calc(100% - 40px));
+  transform: translate(-50%, -50%);
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.35s ease, transform 0.3s ease;
+}
+.s7-quiz.on { opacity: 1; }
+.s7-quiz.out { opacity: 0; transition-duration: 0.3s; }
+.s7-quiz-q {
+  font-size: 16px;
+  line-height: 1.7;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  text-shadow: 0 0 10px rgba(90, 216, 255, 0.4);
+  margin-bottom: 26px;
+}
+.s7-quiz-opts {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+.s7-planet {
+  position: relative;
+  flex: none;
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  background:
+    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.5), transparent 46%),
+    radial-gradient(circle at 50% 55%, var(--c) 0%, rgba(10, 10, 22, 0.86) 76%);
+  box-shadow: 0 0 16px var(--c), 0 0 2px rgba(255, 255, 255, 0.6) inset;
+  color: var(--ink);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  animation: s7-bob 3.2s ease-in-out infinite;
+  transition: transform 0.2s ease, filter 0.25s ease, opacity 0.3s ease;
+}
+.s7-planet:active { transform: scale(0.94); }
+.s7-planet-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+@keyframes s7-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+.s7-planet.ok {
+  animation: none;
+  filter: drop-shadow(0 0 10px var(--c)) drop-shadow(0 0 22px var(--c));
+  transform: scale(1.08);
+}
+.s7-planet.bad {
+  animation: s7-shake 0.36s steps(6);
+  opacity: 0.45;
+  filter: grayscale(0.4);
+}
+.s7-planet.reveal {
+  animation: none;
+  filter: drop-shadow(0 0 10px var(--c)) drop-shadow(0 0 24px var(--c));
+  transform: scale(1.1);
+}
+@keyframes s7-shake {
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+/* ---------- 星座榜单 ---------- */
+.s7-rank {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(320px, calc(100% - 32px));
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.s7-rank.on { opacity: 1; }
+.s7-rank.out { opacity: 0; transition-duration: 0.4s; }
+.s7-rank-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.s7-rank-line {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 1.2;
+}
+.s7-rank-dot {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: s7-rank-in 0.5s ease forwards;
+  animation-delay: var(--d, 0s);
+  filter: drop-shadow(0 0 4px currentColor);
+}
+@keyframes s7-rank-in {
+  from { opacity: 0; transform: scale(0.3); }
+  to { opacity: 1; transform: scale(1); }
+}
+.s7-rank-label {
+  font-size: 11px;
+  fill: var(--ink);
+  letter-spacing: 0.02em;
+}
+.s7-rank-num {
+  font-size: 9px;
+  fill: var(--ink-dim);
+}
+.s7-rank-title {
+  position: absolute;
+  top: -22px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--ink-dim);
+}
+.s7-rank-title.l { left: 8%; }
+.s7-rank-title.r { right: 8%; }
+
+/* ---------- 数字打字机弹出 ---------- */
+.s7-stats {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+.s7-stats.on { opacity: 1; }
+.s7-stats.out { opacity: 0; transition-duration: 0.4s; }
+.s7-stats-card {
+  width: min(320px, calc(100% - 44px));
+  padding: 24px 20px;
+  text-align: center;
+  background: rgba(10, 10, 26, 0.55);
+  border: 1px solid rgba(255, 211, 92, 0.3);
+  border-radius: 18px;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 36px rgba(10, 4, 30, 0.5);
+}
+.s7-stats-line {
+  font-size: 14px;
+  line-height: 2;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+  min-height: 1.8em;
+}
+.s7-stats-line .num {
+  font-size: 1.25em;
+  font-weight: 700;
+  color: #ffd35c;
+  text-shadow: 0 0 10px rgba(255, 211, 92, 0.6);
+}
+
+/* ---------- 照片：漂浮的星光相框 ---------- */
+.s7-photo {
+  position: absolute;
+  width: 15vw;
+  max-width: 76px;
+  min-width: 52px;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  animation: s7-float var(--dur, 12s) ease-in-out infinite;
+  animation-delay: inherit;
+  will-change: transform;
+}
+@keyframes s7-float {
+  0%   { transform: translate(-50%, -50%) rotate(var(--r0, 0deg)); }
+  50%  { transform: translate(calc(-50% + var(--dx, 10px)), calc(-50% + var(--dy, 10px))) rotate(var(--r1, 0deg)); }
+  100% { transform: translate(-50%, -50%) rotate(var(--r0, 0deg)); }
+}
+.s7-photo-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 244, 214, 0.85);
+  box-shadow: 0 0 10px rgba(255, 244, 214, 0.55), 0 0 2px #fff inset;
+  overflow: hidden;
+  background: #11142a;
+  animation: s7-photo-glow 3.6s ease-in-out infinite;
+}
+@keyframes s7-photo-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(255, 244, 214, 0.4), 0 0 2px #fff inset; }
+  50% { box-shadow: 0 0 16px rgba(255, 244, 214, 0.85), 0 0 3px #fff inset; }
+}
+.s7-photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+.s7-photo-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: rgba(255, 244, 214, 0.75);
+  background:
+    radial-gradient(circle, rgba(255, 244, 214, 0.18), transparent 70%);
+}
+
+/* ---------- 照片灯箱 ---------- */
+.s7-light {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+}
+.s7-light.on { opacity: 1; pointer-events: auto; }
+.s7-light-backdrop { position: absolute; inset: 0; background: rgba(4, 4, 12, 0.78); }
+.s7-light-card {
+  position: relative;
+  width: min(300px, calc(100% - 48px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  transform: scale(0.92);
+  transition: transform 0.25s ease;
+}
+.s7-light.on .s7-light-card { transform: none; }
+.s7-light-img {
+  width: 100%;
+  max-height: 58vh;
+  aspect-ratio: 0.71;
+  object-fit: contain;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 244, 214, 0.75);
+  box-shadow: 0 0 22px rgba(255, 244, 214, 0.35);
+  background: rgba(255, 244, 214, 0.06);
+  pointer-events: none;
+}
+.s7-light-placeholder {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  color: rgba(255, 244, 214, 0.75);
+  background: rgba(255, 244, 214, 0.08);
+  border-radius: 10px;
+  border: 2px solid rgba(255, 244, 214, 0.4);
+}
+.s7-light-caption {
+  font-size: 13px;
+  line-height: 1.7;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+  text-align: center;
+  padding: 8px 14px;
+  background: rgba(10, 10, 26, 0.6);
+  border-radius: 12px;
+}
+
+/* ---------- 点开注解 / 命中星星的小爆闪 ---------- */
+.s7-burst {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--c, #fff4d6), transparent 70%);
+  pointer-events: none;
+  animation: s7-burst-fx 0.65s ease-out forwards;
+}
+@keyframes s7-burst-fx {
+  0% { transform: scale(0.4); opacity: 0.95; }
+  100% { transform: scale(5.2); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s7-planet, .s7-photo, .s7-photo-frame, .s7-rank-dot, .s7-burst { animation: none; }
+}

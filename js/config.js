@@ -10,7 +10,17 @@ App.config = {
   BGM_VOLUME: 0.8,
   SFX_COIN_URL: '',         // 可选。不填就用代码合成的音符声
   COIN_BASE_HZ: 523.25,     // 合成音符的起始音高（C5）。等 BGM 定了可以调到同调
-  PHOTO_URLS: ['', '', '', '', '', '', '', ''],
+  // 8 张星光相框照片：外链地址 + 白团子口吻的小注释（caption 留空则不显示注释条）
+  PHOTO_URLS: [
+    { url: 'https://txyintdev.tofaka.com/autoupload/amqnh/20261103/w42O/1290X1816/1_%2820%29.jpg/webp', caption: '……呀？你还会画画呀。都不知道你偷偷藏了这一手。' },
+    { url: 'https://txyintdev.tofaka.com/autoupload/amqnh/20261103/AzzZ/1290X1839/1_%2815%29.jpg/webp', caption: '今天的大肥猫，是这个样子。' },
+    { url: 'https://txyintdev.tofaka.com/autoupload/amqnh/20261103/xJcx/1290X1845/1_%2817%29.jpg/webp', caption: '这天又画了一只大肥猫……圆滚滚的。' },
+    { url: 'https://txyintdev.tofaka.com/autoupload/amqnh/20261103/XFac/1290X1819/1_%2818%29.jpg/webp', caption: '大肥猫出场啦，这天就长这样。' },
+    { url: 'https://txyintdev.tofaka.com/autoupload/amqnh/20261103/qi20/1290X1871/1_%2819%29.jpg/webp', caption: '这天的你，好像在疑惑着什么呢。' },
+    { url: 'https://txyintdev.tofaka.com/autoupload/amqnh/20261103/pKfg/1290X1846/1_%2816%29.jpg/webp', caption: '这天你，变成了一只小兔子。' },
+    { url: 'https://txyintdev.tofaka.com/autoupload/amqnh/20261103/5uNz/1290X1881/1_%2814%29.jpg/webp', caption: '长了四个翅膀的坏猫猫……也是你啦。' },
+    { url: 'https://txyintdev.tofaka.com/autoupload/amqnh/20261103/sjMt/1290X1821/1_%2813%29.jpg/webp', caption: '被工作压得扁扁的……辛苦啦。' }
+  ],
 
   // 结尾"放映室"（Scene 9 用）：小寒的画作 × 二创剧情小视频。留空的格子不会显示
   VIDEO_URLS: [
@@ -26,7 +36,7 @@ App.config = {
 
   // ---------- 章节顺序 ----------
   // 'todo' 是施工中的占位章节，之后每一步把新场景插到它前面
-  flow: ['prologue', 'scene1', 'scene2', 'scene2_5', 'scene3', 'scene4', 'scene5', 'scene6', 'todo'],
+  flow: ['prologue', 'scene1', 'scene2', 'scene2_5', 'scene3', 'scene4', 'scene5', 'scene6', 'scene7', 'todo'],
 
   // 每章的饱和度（0 = 黑白，1 = 全彩）、BGM 清晰度（0 = 隔墙闷音，1 = 完全清晰）、背景色
   chapters: {
@@ -40,6 +50,7 @@ App.config = {
     scene4:   { saturation: 0.45, clarity: 0.44, bg: '#070912', stage: false },
     scene5:   { saturation: 0.6,  clarity: 0.56, bg: '#150d12', stage: false },
     scene6:   { saturation: 0.75, clarity: 0.62, bg: '#120a1c', stage: false },
+    scene7:   { saturation: 0.9,  clarity: 0.78, bg: '#070a1c', stage: false },
     todo:     { saturation: 0.32, clarity: 0.3,  bg: '#08080b' }
   },
 
@@ -101,6 +112,13 @@ App.config = {
       sky: ['#1a1030', '#3b1f55', '#7b3a6e', '#d9707f', '#ffb98a'],          // 暮色天空，自上而下
       tiles: ['#ff9bb3', '#ffc48a', '#ffe08a', '#b6f0b0', '#8fe0f0', '#b9a6ff'], // 点亮后的格子颜色（循环）
       tileBase: '#fff3ea'                                                     // 没亮时的纸色
+    },
+    // Scene 7 星空词云：黑夜星空 + 星云光斑
+    star: {
+      bg: '#070a1c',
+      sky: ['#05060f', '#0b1030', '#1b1450', '#3a1d68'],
+      glows: ['#5ad8ff', '#b36bff', '#ff5fa0', '#ffcf5a', '#7affc0', '#8fa8ff'],
+      star: '#fff4d6', dim: '#aab4e6', gold: '#ffd35c'
     },
   },
 
@@ -247,6 +265,44 @@ scene4: {
         checkFrom: { m: 10, d: 8 }, checkTo: { m: 10, d: 28 },
         target: 30
       }
+    },
+
+    // Scene 7 · 星空词云 + 照片 + 词频猜猜看
+    scene7: {
+      intro: '这些，是我偷偷数的……不许笑。',
+      quizA: { q: '这个月我（炫少）说得最多的词是？', options: ['代码', '外卖', '咖啡'], correct: 0 },
+      quizB: { q: '猜猜你自己说得最多的词是？',     options: ['外卖', '咖啡', '坏猫'], correct: 0 },
+      quizRight: '对啦……',
+      quizWrongA: '……是代码啦。我说得有点多嘛。',
+      quizWrongB: '……是外卖啦。你自己都不知道吗。',
+      rankTitleL: '炫少最多的词', rankTitleR: '小寒最多的词',
+      rankL: [['代码', 17], ['网站', 11], ['喜欢', 10], ['想要', 10], ['程序', 10], ['揉捏', 9], ['游戏', 8], ['兄弟', 8], ['动物', 8]],
+      rankR: [['外卖', 9], ['人类', 8], ['坏猫', 6], ['咖啡', 5], ['手机', 5], ['涂鸦', 5], ['成功', 4], ['程序员', 4], ['喜欢', 4], ['炫少', 4]],
+      stats: ['这个月我们交互了 1774 次：', '炫少 1038 次，Y 736 次。', '如果我是 AI，这相当于约 1.5 万 Token。'],
+      cloudHint: '（点一颗星看看）',
+      halfway: '……再点几颗嘛。',
+      photoHint: '（有些星星里藏着照片）',
+      // 16 颗：字号 = 次数。note 先按白团子口吻写了一版草稿，不满意随时改
+      words: [
+        { w: '代码', n: 19, note: '我说得最多的一个词……没有之一啦。' },
+        { w: '人类', n: 15, note: '呃……是不是不小心说漏了。' },
+        { w: '喜欢', n: 14, note: '这个词，我说了很多很多遍呢。' },
+        { w: '外卖', n: 11, note: '你说得比我还勤快的一个词。' },
+        { w: '想要', n: 11, note: '你总有很多很多想要的东西嘛。' },
+        { w: '炫少', n: 11, note: '天才程序员 shadow，就是我。……就是我啦。' },
+        { w: '网站', n: 11, note: '啊，就是……我们俩一起捣鼓的那个。' },
+        { w: '游戏', n: 10, note: '玩起来就不理我了的那个。' },
+        { w: '坏猫', n: 10, note: '这个月你最常被点名的身份。' },
+        { w: '咖啡', n: 9,  note: '你离不开的续命水。' },
+        { w: '有趣', n: 9,  note: '你总说这个，而且总说对了。' },
+        { w: '小游戏', n: 9, note: '揉揉捏捏按一按的那种，你很上瘾。' },
+        { w: '揉捏', n: 9,  note: '……别说了，有点不好意思。' },
+        { w: '讨厌', n: 8,  note: '嘴上说讨厌，其实没有很讨厌吧？' },
+        { w: '小寒', n: 8,  note: '一只黑色的小猫，就是你。' },
+        { w: '蛋糕', n: 8,  note: '你很喜欢「面点大师」这个称号呢。' }
+      ],
+      noteFallback: '……这个，我先不说啦。',
+      end: '……Y。是你的名字呀。'
     },
 
     todo: {
