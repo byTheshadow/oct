@@ -303,7 +303,7 @@ html, body {
 }
 .charge-mark.on { display: block; }
 
-/* ========== Scene 2：失误字幕 ========== */
+/* ========== Scene 2：失误字幕  ========== */
 .caption {
   position: absolute;
   left: 0;
